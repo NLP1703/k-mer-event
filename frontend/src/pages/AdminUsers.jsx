@@ -1,17 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { fetchUsersForAdmin } from '../services/api.js';
+import {
+  createUserForAdmin,
+  deleteUserForAdmin,
+  fetchUsersForAdmin,
+  updateUserForAdmin,
+} from '../services/api.js';
+
+import AdminUserBookings from './AdminUserBookings.jsx';
 
 function AdminUsers() {
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showBookings, setShowBookings] = useState(false);
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    email: '',
+    telephone: '',
+    role: 'user',
+    avatar_url: '',
+  });
+
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    telephone: '',
+    role: 'user',
+    avatar_url: '',
+  });
+
+  const refreshUsers = async () => {
+    const data = await fetchUsersForAdmin();
+    setUsers(data.users || []);
+  };
+
   useEffect(() => {
     const run = async () => {
       try {
-        const data = await fetchUsersForAdmin();
-        setUsers(data.users || []);
+        setError('');
+        await refreshUsers();
       } catch (e) {
         setError(e.response?.data?.message || 'Unable to load users');
       } finally {
@@ -20,6 +53,93 @@ function AdminUsers() {
     };
     run();
   }, []);
+
+  const canEdit = useMemo(() => editingId !== null, [editingId]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    setError('');
+    try {
+      await createUserForAdmin({ ...createForm });
+      setCreateForm({ name: '', email: '', telephone: '', role: 'user', avatar_url: '' });
+      await refreshUsers();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to create user');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const startEdit = (u) => {
+    setEditingId(u.id);
+    setEditForm({
+      name: u.name || '',
+      email: u.email || '',
+      telephone: u.telephone || '',
+      role: u.role || 'user',
+      avatar_url: u.avatar_url || '',
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ name: '', email: '', telephone: '', role: 'user', avatar_url: '' });
+  };
+
+  const handleUpdate = async (id) => {
+    setCreating(true);
+    setError('');
+    try {
+      await updateUserForAdmin(id, {
+        name: editForm.name,
+        email: editForm.email,
+        telephone: editForm.telephone,
+        role: editForm.role,
+        avatar_url: editForm.avatar_url,
+      });
+      cancelEdit();
+      await refreshUsers();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to update user');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const ok = window.confirm('Supprimer cet utilisateur ?');
+    if (!ok) return;
+
+    setCreating(true);
+    setError('');
+    try {
+      await deleteUserForAdmin(id);
+      if (editingId === id) cancelEdit();
+      await refreshUsers();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete user');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleViewBookings = (userId) => {
+    setSelectedUserId(userId);
+    setShowBookings(true);
+  };
+
+  if (showBookings) {
+    return (
+      <AdminUserBookings
+        userId={selectedUserId}
+        onBack={() => {
+          setShowBookings(false);
+          setSelectedUserId(null);
+        }}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -41,8 +161,84 @@ function AdminUsers() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="glass-card rounded-[36px] border border-white/10 p-8">
         <h1 className="text-4xl font-semibold text-white">Admin - Utilisateurs</h1>
-        <p className="mt-3 text-white/70">Voir les utilisateurs enregistrés sur la plateforme.</p>
+        <p className="mt-3 text-white/70">Voir, créer, modifier et supprimer des utilisateurs.</p>
       </div>
+
+      <section className="glass-card rounded-[36px] border border-white/10 p-8">
+        <h2 className="text-2xl font-semibold text-white">Créer un utilisateur</h2>
+
+        <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm text-white/70">Nom</span>
+            <input
+              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              value={createForm.name}
+              onChange={(e) => setCreateForm((s) => ({ ...s, name: e.target.value }))}
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-white/70">Email</span>
+            <input
+              type="email"
+              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              value={createForm.email}
+              onChange={(e) => setCreateForm((s) => ({ ...s, email: e.target.value }))}
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-white/70">Téléphone</span>
+            <input
+              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              value={createForm.telephone}
+              onChange={(e) => setCreateForm((s) => ({ ...s, telephone: e.target.value }))}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-white/70">Rôle</span>
+            <select
+              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              value={createForm.role}
+              onChange={(e) => setCreateForm((s) => ({ ...s, role: e.target.value }))}
+            >
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+
+          <label className="block md:col-span-2">
+            <span className="text-sm text-white/70">Avatar URL</span>
+            <input
+              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              value={createForm.avatar_url}
+              onChange={(e) => setCreateForm((s) => ({ ...s, avatar_url: e.target.value }))}
+            />
+          </label>
+
+          <div className="flex items-center gap-3 md:col-span-2">
+            <button
+              type="submit"
+              disabled={creating}
+              className="px-5 py-3 text-white border rounded-full border-white/10 bg-white/5 hover:border-neon disabled:opacity-60"
+            >
+              {creating ? 'En cours...' : 'Créer'}
+            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="px-5 py-3 text-white border rounded-full border-white/10 bg-white/5 hover:border-neon"
+              >
+                Annuler édition
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </section>
 
       <section className="glass-card rounded-[36px] border border-white/10 p-8">
         <h2 className="text-2xl font-semibold text-white">Liste des utilisateurs</h2>
@@ -58,19 +254,112 @@ function AdminUsers() {
                   <th className="py-3 pr-6">Email</th>
                   <th className="py-3 pr-6">Rôle</th>
                   <th className="py-3 pr-6">Téléphone</th>
+                  <th className="py-3 pr-6">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="text-sm border-t border-white/10 text-white/80">
-                    <td className="py-3 pr-6">
-                      <div className="font-semibold text-white">{u.name}</div>
-                    </td>
-                    <td className="py-3 pr-6">{u.email}</td>
-                    <td className="py-3 pr-6">{u.role}</td>
-                    <td className="py-3 pr-6">{u.telephone || '-'}</td>
-                  </tr>
-                ))}
+                {users.map((u) => {
+                  const isEditing = editingId === u.id;
+                  return (
+                    <tr key={u.id} className="text-sm border-t border-white/10 text-white/80">
+                      <td className="py-3 pr-6">
+                        {isEditing ? (
+                          <input
+                            className="w-48 px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm((s) => ({ ...s, name: e.target.value }))}
+                          />
+                        ) : (
+                          <div className="font-semibold text-white">{u.name}</div>
+                        )}
+                      </td>
+                      <td className="py-3 pr-6">
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            className="w-56 px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm((s) => ({ ...s, email: e.target.value }))}
+                          />
+                        ) : (
+                          u.email
+                        )}
+                      </td>
+                      <td className="py-3 pr-6">
+                        {isEditing ? (
+                          <select
+                            className="px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            value={editForm.role}
+                            onChange={(e) => setEditForm((s) => ({ ...s, role: e.target.value }))}
+                          >
+                            <option value="user">user</option>
+                            <option value="admin">admin</option>
+                          </select>
+                        ) : (
+                          u.role
+                        )}
+                      </td>
+                      <td className="py-3 pr-6">
+                        {isEditing ? (
+                          <input
+                            className="px-3 py-2 text-white border outline-none w-44 rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            value={editForm.telephone}
+                            onChange={(e) => setEditForm((s) => ({ ...s, telephone: e.target.value }))}
+                          />
+                        ) : (
+                          u.telephone || '-'
+                        )}
+                      </td>
+                      <td className="py-3 pr-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={creating}
+                                onClick={() => handleUpdate(u.id)}
+                                className="px-3 py-2 border rounded-full border-neon text-neon hover:bg-neon/10 disabled:opacity-60"
+                              >
+                                Sauver
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEdit}
+                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-white/30"
+                              >
+                                Annuler
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => startEdit(u)}
+                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-neon"
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleViewBookings(u.id)}
+                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-neon"
+                              >
+                                Voir bookings
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(u.id)}
+                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-rose-400"
+                              >
+                                Supprimer
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

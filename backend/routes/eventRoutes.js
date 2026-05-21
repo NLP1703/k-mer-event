@@ -5,8 +5,11 @@ import { createEvent, listEvents, getEventById, updateEvent, deleteEvent } from 
 
 const router = express.Router();
 
+
+
 router.get('/', listEvents);
 router.get('/:id', getEventById);
+
 router.post(
   '/',
   authenticate,

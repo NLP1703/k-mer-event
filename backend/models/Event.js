@@ -12,9 +12,30 @@ export const Event = sequelize.define('Event', {
   banner_url: { type: DataTypes.STRING },
   // NOTE: MySQL JSON type/alter was failing in this environment.
   // We store arrays/objects as TEXT to keep the app functional.
-  photo_urls: { type: DataTypes.TEXT, defaultValue: '[]', allowNull: false },
+  // Le schéma de la DB courante utilise peut-être `photo_url` (singulier) => on mappe `photo_urls`.
+  // photo_urls is not present in the current `events` table.
+  // Keep it as a virtual attribute so the API can accept/update it without breaking SELECTs.
+  photo_urls: {
+    type: DataTypes.VIRTUAL(DataTypes.TEXT),
+    get() {
+      return [];
+    },
+    set(_val) {
+      // no-op: column missing in DB
+    },
+  },
 
-  video_url: { type: DataTypes.STRING, allowNull: true },
+  // video_url is not present in the current `events` table.
+  video_url: {
+    type: DataTypes.VIRTUAL(DataTypes.STRING),
+    get() {
+      return null;
+    },
+    set(_val) {
+      // no-op
+    },
+  },
+
   start_date: { type: DataTypes.DATE, allowNull: false },
   end_date: { type: DataTypes.DATE },
   ticket_price: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },

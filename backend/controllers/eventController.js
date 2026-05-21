@@ -9,10 +9,25 @@ export const listEvents = async (req, res, next) => {
     const { search, city, category, status, admin } = req.query;
     const filters = { where: {} };
 
-    if (search) filters.where.title = { [Op.like]: `%${search}%` };
-    if (city) filters.where.city = city;
-    if (category) filters.where.category = category;
-    if (status) filters.where.status = status;
+    // Toujours coerce la valeur en string pour éviter tout crash si query.search est vide/undefined
+    const normalizedSearch = ((search ?? '') + '').trim();
+
+    // Logs pour diagnostiquer les 500 côté backend
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[listEvents] query=', { search, city, category, status, admin, originalUrl: req.originalUrl });
+      console.log('[listEvents] normalizedSearch=', normalizedSearch);
+    }
+
+
+    if (normalizedSearch) {
+      // Utilise la colonne exacte du model Sequelize
+      filters.where.title = { [Op.like]: `%${normalizedSearch}%` };
+    }
+
+
+    if (typeof city === 'string' && city.trim()) filters.where.city = city.trim();
+    if (typeof category === 'string' && category.trim()) filters.where.category = category.trim();
+    if (typeof status === 'string' && status.trim()) filters.where.status = status.trim();
 
     const events = await Event.findAll({
       ...filters,
@@ -20,46 +35,66 @@ export const listEvents = async (req, res, next) => {
       limit: 40,
     });
 
+    // Admin augmentation: sales stats per event
     if (admin === 'true') {
-      const confirmedBookings = await Booking.findAll({
-        where: { status: 'confirmed' },
-        include: [{ model: User, as: 'user', attributes: ['name'] }],
-      });
+      try {
+        const confirmedBookings = await Booking.findAll({
+          where: { status: 'confirmed' },
+          include: [{ model: User, as: 'user', attributes: ['name'] }],
+        });
 
-      const salesByEvent = confirmedBookings.reduce((map, booking) => {
-        const eventId = booking.event_id;
-        const buyerName = booking.user?.name || booking.customer_name || 'Utilisateur inconnu';
+        const salesByEvent = confirmedBookings.reduce((map, booking) => {
+          const eventId = booking.event_id;
+          const buyerName = booking.user?.name || booking.customer_name || 'Utilisateur inconnu';
 
-        if (!map[eventId]) {
-          map[eventId] = { sold_tickets: 0, buyers: new Set() };
-        }
+          if (!map[eventId]) {
+            map[eventId] = { sold_tickets: 0, buyers: new Set() };
+          }
 
-        map[eventId].sold_tickets += booking.quantity;
-        if (buyerName) {
-          map[eventId].buyers.add(buyerName);
-        }
+          map[eventId].sold_tickets += booking.quantity;
+          if (buyerName) {
+            map[eventId].buyers.add(buyerName);
+          }
 
-        return map;
-      }, {});
+          return map;
+        }, {});
 
-      const enhancedEvents = events.map((event) => {
-        const plainEvent = event.get({ plain: true });
-        const stats = salesByEvent[plainEvent.id] || { sold_tickets: 0, buyers: new Set() };
-        return {
-          ...plainEvent,
-          sold_tickets: stats.sold_tickets,
-          buyers: Array.from(stats.buyers),
-        };
-      });
+        const enhancedEvents = events.map((event) => {
+          const plainEvent = event.get({ plain: true });
+          const stats = salesByEvent[plainEvent.id] || { sold_tickets: 0, buyers: new Set() };
+          return {
+            ...plainEvent,
+            sold_tickets: stats.sold_tickets,
+            buyers: Array.from(stats.buyers),
+          };
+        });
 
-      return res.json({ events: enhancedEvents });
+        return res.json({ events: enhancedEvents });
+      } catch (adminError) {
+        console.error('[listEvents] admin augmentation failed (non-fatal)', {
+          url: req.originalUrl,
+          query: req.query,
+          errorName: adminError?.name,
+          message: adminError?.message,
+          stack: adminError?.stack,
+        });
+        // On continue sans stats admin
+      }
     }
 
-    res.json({ events });
+    return res.json({ events });
   } catch (error) {
+    console.error('[listEvents] failed', {
+      url: req.originalUrl,
+      query: req.query,
+      errorName: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+    });
     next(error);
   }
 };
+
 
 export const getEventById = async (req, res, next) => {
   try {
@@ -144,3 +179,4 @@ export const deleteEvent = async (req, res, next) => {
     next(error);
   }
 };
+

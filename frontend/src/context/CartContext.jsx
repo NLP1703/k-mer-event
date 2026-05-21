@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import {
   fetchCart,
@@ -14,7 +14,7 @@ export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     const token = localStorage.getItem('kmer-token');
 
     // Avoid protected `/cart` calls when not authenticated.
@@ -39,13 +39,13 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-
-  };
+  }, [user]);
 
   useEffect(() => {
     loadCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [loadCart]);
+
+
 
   useEffect(() => {
     // If token is removed (e.g., invalid/expired), ensure we don't keep a stale cart.

@@ -11,18 +11,36 @@ import cartRoutes from './routes/cartRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import paymentsRoutes from './routes/paymentsRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
+import adminBookingsRoutes from './routes/adminBookingsRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
-
-
 dotenv.config();
+
 
 const app = express();
 
 app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
+
+// CORS: explicitly support browser preflight requests
+const corsOptions = {
+origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'X-Requested-With',
+  ],
+  credentials: false,
+};
+
+// Important: handle OPTIONS requests early so routers/auth don't block preflight
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+
+
 app.use(morgan('dev'));
 
 const apiLimiter = rateLimit({
@@ -42,6 +60,9 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/admin', adminBookingsRoutes);
+
+
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'K-MER Event Booking API' }));
 

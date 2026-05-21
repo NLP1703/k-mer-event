@@ -5,7 +5,10 @@ import { getCart, addToCart, removeFromCart, clearCart } from '../controllers/ca
 
 const router = express.Router();
 
+
+
 router.get('/', authenticate, getCart);
+
 router.post(
   '/',
   authenticate,

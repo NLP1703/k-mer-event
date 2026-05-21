@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -88,9 +88,41 @@ export const deleteEvent = async (eventId) => {
   return response.data;
 };
 
-// Admin: list users
+// Admin: users CRUD
 export const fetchUsersForAdmin = async () => {
   const response = await api.get('/admin/users');
   return response.data;
 };
+
+export const createUserForAdmin = async (payload) => {
+  const response = await api.post('/admin/users', payload);
+  return response.data;
+};
+
+export const fetchUserForAdmin = async (id) => {
+  const response = await api.get(`/admin/users/${id}`);
+  return response.data;
+};
+
+export const updateUserForAdmin = async (id, payload) => {
+  const response = await api.put(`/admin/users/${id}`, payload);
+  return response.data;
+};
+
+export const deleteUserForAdmin = async (id) => {
+  const response = await api.delete(`/admin/users/${id}`);
+  return response.data;
+};
+
+// Admin: list bookings for a user
+export const fetchBookingsForUserAdmin = async (userId) => {
+  const response = await api.get(`/admin/users/${userId}/bookings`);
+  return response.data;
+};
+
+
+
+
+
+
 
