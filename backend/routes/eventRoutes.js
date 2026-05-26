@@ -1,7 +1,16 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { authenticate, authorize } from '../middlewares/auth.js';
-import { createEvent, listEvents, getEventById, updateEvent, deleteEvent } from '../controllers/eventController.js';
+import { authenticate, authorize, authorizeEventOwner } from '../middlewares/auth.js';
+import {
+  createEvent,
+  listEvents,
+  getEventById,
+  updateEvent,
+  deleteEvent,
+  approveEventByAdmin,
+  cancelEventByAdmin,
+} from '../controllers/eventController.js';
+
 
 const router = express.Router();
 
@@ -13,8 +22,9 @@ router.get('/:id', getEventById);
 router.post(
   '/',
   authenticate,
-  authorize('admin'),
+  authorize('admin', 'organizer'),
   [
+
     body('title').notEmpty().withMessage('Title is required'),
     body('description').notEmpty().withMessage('Description is required'),
     body('category').notEmpty().withMessage('Category is required'),
@@ -27,7 +37,12 @@ router.post(
   ],
   createEvent,
 );
-router.put('/:id', authenticate, authorize('admin'), updateEvent);
-router.delete('/:id', authenticate, authorize('admin'), deleteEvent);
+router.put('/:id', authenticate, authorize('admin', 'organizer'), authorizeEventOwner, updateEvent);
+router.delete('/:id', authenticate, authorize('admin', 'organizer'), authorizeEventOwner, deleteEvent);
+
+// Admin workflow: proposee par organizer => pending, puis admin publie/annule
+router.post('/:id/approve', authenticate, authorize('admin'), approveEventByAdmin);
+router.post('/:id/cancel', authenticate, authorize('admin'), cancelEventByAdmin);
 
 export default router;
+

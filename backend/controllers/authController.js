@@ -16,7 +16,8 @@ export const registerUser = async (req, res, next) => {
       return res.status(422).json({ errors: errors.array() });
     }
 
-    const { name, telephone, email, password } = req.body;
+    const { name, telephone, email, password, role = 'user', organization_name } = req.body;
+
 
     const existing = await User.findOne({ where: { email } });
     if (existing) {
@@ -29,11 +30,24 @@ export const registerUser = async (req, res, next) => {
       telephone,
       email,
       password: hashedPassword,
+      role,
+      organization_name: role === 'organizer' ? organization_name : null,
     });
+
 
     const token = generateToken(user);
 
-    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization_name: user.organization_name ?? null,
+      },
+      token,
+    });
+
   } catch (error) {
     next(error);
   }

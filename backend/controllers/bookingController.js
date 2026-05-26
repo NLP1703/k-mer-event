@@ -5,6 +5,7 @@ import { Booking } from '../models/Booking.js';
 import { Event } from '../models/Event.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
+import { Op, literal } from 'sequelize';
 import { sendBookingConfirmation } from '../services/emailService.js';
 
 
@@ -93,6 +94,23 @@ export const checkoutCart = async (req, res, next) => {
       const booking_number = createBookingNumber();
       const qr_code_url = await createQrCodeForBooking(booking_number, event.title, req.user.id);
 
+      // Deduct stock immediately during checkout (atomic with transaction)
+      const dec = await Event.update(
+        { remaining_tickets: sequelize.literal('remaining_tickets - ' + item.quantity) },
+        {
+          where: {
+            id: event.id,
+            remaining_tickets: { [Op.gte]: item.quantity },
+          },
+          transaction: t,
+        }
+      );
+
+      if (!dec[0]) {
+        await t.rollback();
+        return res.status(409).json({ message: `Not enough tickets available for ${event.title}` });
+      }
+
       const booking = await Booking.create(
         {
           booking_number,
@@ -101,7 +119,7 @@ export const checkoutCart = async (req, res, next) => {
           quantity: item.quantity,
           total_price: Number(event.ticket_price) * item.quantity,
           qr_code_url,
-          status: 'pending',
+          status: 'confirmed',
           customer_name: req.body.name || req.user.name,
           customer_email: req.body.email || req.user.email,
           customer_phone: req.body.phone || '',
@@ -113,6 +131,7 @@ export const checkoutCart = async (req, res, next) => {
     }
 
     await Cart.destroy({ where: { user_id: req.user.id }, transaction: t });
+
 
     await t.commit();
     res.status(201).json({ bookings });

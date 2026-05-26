@@ -7,8 +7,10 @@ export const listUsersForAdmin = async (req, res, next) => {
   try {
     const users = await User.findAll({
       attributes: userPublicFields,
+      where: { is_deleted: false },
       order: [['created_at', 'DESC']],
     });
+
 
     res.json({ users });
   } catch (error) {
@@ -20,7 +22,9 @@ export const getUserForAdmin = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: userPublicFields,
+      where: { is_deleted: false },
     });
+
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -98,16 +102,35 @@ export const updateUserForAdmin = async (req, res, next) => {
 
 export const deleteUserForAdmin = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.params.id);
+    const userId = req.params.id;
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    await user.destroy();
+    // Soft delete: avoid FK constraint errors from Booking/Cart referencing this user.
+    // Keep historical records intact.
+    user.is_deleted = true;
+    await user.save();
+
     res.json({ message: 'User deleted' });
+
   } catch (error) {
+    // If soft-delete fails for any reason, surface as a controlled error.
+    // (Foreign-key constraint errors should no longer happen because we no longer call user.destroy()).
+    if (error?.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({ message: 'Cannot delete user with existing dependent records' });
+    }
+
+
+    // Help surface the request id in logs even when errorHandler is generic.
+    // eslint-disable-next-line no-console
+    console.error('deleteUserForAdmin failed:', { id: req.params.id, errorName: error?.name, errorMessage: error?.message });
     next(error);
   }
 };
+
+
+
 
 

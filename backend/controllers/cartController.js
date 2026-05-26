@@ -4,7 +4,16 @@ import { Event } from '../models/Event.js';
 
 export const getCart = async (req, res, next) => {
   try {
-    const items = await Cart.findAll({ where: { user_id: req.user.id }, include: ['event'] });
+    const items = await Cart.findAll({
+      where: { user_id: req.user.id },
+      include: [
+        {
+          model: Event,
+          as: 'event',
+          attributes: { exclude: ['video_url'] },
+        },
+      ],
+    });
     res.json({ items });
   } catch (error) {
     next(error);
@@ -33,7 +42,16 @@ export const addToCart = async (req, res, next) => {
       await item.update({ quantity });
     }
 
-    const items = await Cart.findAll({ where: { user_id: req.user.id }, include: ['event'] });
+    const items = await Cart.findAll({
+      where: { user_id: req.user.id },
+      include: [
+        {
+          model: Event,
+          as: 'event',
+          attributes: { exclude: ['video_url'] },
+        },
+      ],
+    });
     res.json({ items });
   } catch (error) {
     next(error);
@@ -44,7 +62,16 @@ export const removeFromCart = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     await Cart.destroy({ where: { user_id: req.user.id, event_id: eventId } });
-    const items = await Cart.findAll({ where: { user_id: req.user.id }, include: ['event'] });
+    const items = await Cart.findAll({
+      where: { user_id: req.user.id },
+      include: [
+        {
+          model: Event,
+          as: 'event',
+          attributes: { exclude: ['video_url'] },
+        },
+      ],
+    });
     res.json({ items });
   } catch (error) {
     next(error);

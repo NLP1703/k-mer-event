@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { fetchEvents, createEvent, deleteEvent, updateEvent } from '../services/api.js';
+import { fetchEvents, createEvent, deleteEvent, updateEvent, approveEvent, cancelEvent } from '../services/api.js';
 
 function AdminEvents() {
   const [events, setEvents] = useState([]);
@@ -27,6 +27,16 @@ function AdminEvents() {
   const loadEvents = async () => {
     const response = await fetchEvents({ admin: true });
     setEvents(response.events || []);
+  };
+
+  const approve = async (eventId) => {
+    const res = await approveEvent(eventId);
+    setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, ...res.event } : e)));
+  };
+
+  const cancel = async (eventId) => {
+    const res = await cancelEvent(eventId);
+    setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, ...res.event } : e)));
   };
 
   useEffect(() => {
@@ -170,7 +180,7 @@ function AdminEvents() {
                 <input
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
               <label className="block text-white/70">
@@ -178,7 +188,7 @@ function AdminEvents() {
                 <input
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
             </div>
@@ -189,7 +199,7 @@ function AdminEvents() {
                 <input
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
               <label className="block text-white/70">
@@ -197,7 +207,7 @@ function AdminEvents() {
                 <input
                   value={form.venue}
                   onChange={(e) => setForm({ ...form, venue: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
             </div>
@@ -207,7 +217,7 @@ function AdminEvents() {
               <input
                 value={form.organizer}
                 onChange={(e) => setForm({ ...form, organizer: e.target.value })}
-                className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
               />
             </label>
 
@@ -217,7 +227,7 @@ function AdminEvents() {
                 rows="4"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
               />
             </label>
 
@@ -226,7 +236,7 @@ function AdminEvents() {
               <input
                 value={form.banner_url}
                 onChange={(e) => setForm({ ...form, banner_url: e.target.value })}
-                className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
               />
             </label>
 
@@ -235,11 +245,11 @@ function AdminEvents() {
               <input
                 value={form.video_url}
                 onChange={(e) => setForm({ ...form, video_url: e.target.value })}
-                className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
               />
             </label>
 
-            <div className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-4">
+            <div className="p-4 space-y-3 border rounded-3xl border-white/10 bg-white/5">
               <p className="text-sm uppercase tracking-[0.25em] text-white/70">Photo URLs</p>
               {form.photo_urls.map((photoUrl, index) => (
                 <div key={index} className="flex gap-3">
@@ -247,13 +257,13 @@ function AdminEvents() {
                     value={photoUrl}
                     placeholder="Photo URL"
                     onChange={(e) => updatePhotoUrl(index, e.target.value)}
-                    className="w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                    className="w-full px-5 py-4 text-white border rounded-3xl border-white/10 bg-black/30"
                   />
                   {form.photo_urls.length > 1 ? (
                     <button
                       type="button"
                       onClick={() => removePhotoUrlField(index)}
-                      className="rounded-full border border-white/10 bg-rose-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-400"
+                      className="px-4 py-3 text-sm font-semibold text-white transition border rounded-full border-white/10 bg-rose-500 hover:bg-rose-400"
                     >
                       Remove
                     </button>
@@ -263,7 +273,7 @@ function AdminEvents() {
               <button
                 type="button"
                 onClick={() => addPhotoUrlField()}
-                className="rounded-full bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+                className="px-5 py-3 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400"
               >
                 Add another photo
               </button>
@@ -276,7 +286,7 @@ function AdminEvents() {
                   type="datetime-local"
                   value={form.start_date}
                   onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
               <label className="block text-white/70">
@@ -286,7 +296,7 @@ function AdminEvents() {
                   min="1"
                   value={form.ticket_quantity}
                   onChange={(e) => setForm({ ...form, ticket_quantity: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
             </div>
@@ -299,7 +309,7 @@ function AdminEvents() {
                   step="0.01"
                   value={form.ticket_price}
                   onChange={(e) => setForm({ ...form, ticket_price: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 />
               </label>
               <label className="block text-white/70">
@@ -307,17 +317,17 @@ function AdminEvents() {
                 <select
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                  className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                 >
                   <option value="published">Published</option>
-                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </label>
             </div>
 
             {message ? <p className="text-sm text-neon">{message}</p> : null}
-            <button type="submit" className="rounded-full bg-neon px-6 py-4 text-sm font-semibold text-night transition hover:bg-white">
+            <button type="submit" className="px-6 py-4 text-sm font-semibold transition rounded-full bg-neon text-night hover:bg-white">
               Create event
             </button>
           </form>
@@ -329,39 +339,50 @@ function AdminEvents() {
             {events.map((eventItem) => {
               const soldCount = eventItem.sold_tickets ?? (eventItem.ticket_quantity - eventItem.remaining_tickets);
               return (
-                <div key={eventItem.id} className="rounded-3xl border border-white/10 bg-black/20 p-5">
+                <div key={eventItem.id} className="p-5 border rounded-3xl border-white/10 bg-black/20">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm uppercase tracking-[0.25em] text-neon">{eventItem.category}</p>
                       <h3 className="text-xl font-semibold text-white">{eventItem.title}</h3>
                       <p className="text-sm text-white/70">{eventItem.city} � {new Date(eventItem.start_date).toLocaleDateString()}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => startEdit(eventItem)} className="rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400">
+                      <div className="flex items-center gap-3">
+                      {eventItem.status === 'pending' ? (
+                        <>
+                          <button onClick={() => approve(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-neon hover:bg-white">
+                            Valider
+                          </button>
+                          <button onClick={() => cancel(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-rose-500 hover:bg-rose-400">
+                            Annuler
+                          </button>
+                        </>
+                      ) : null}
+
+                      <button onClick={() => startEdit(eventItem)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400">
                         Modifier
                       </button>
-                      <button onClick={() => removeEvent(eventItem.id)} className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400">
+                      <button onClick={() => removeEvent(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-rose-500 hover:bg-rose-400">
                         Delete
                       </button>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                  <div className="grid gap-3 mt-4 sm:grid-cols-3">
+                    <div className="p-4 border rounded-3xl border-white/10 bg-white/5">
                       <p className="text-sm uppercase tracking-[0.25em] text-white/40">Places vendues</p>
                       <p className="mt-2 text-lg font-semibold text-white">{soldCount}</p>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                    <div className="p-4 border rounded-3xl border-white/10 bg-white/5">
                       <p className="text-sm uppercase tracking-[0.25em] text-white/40">Places restantes</p>
                       <p className="mt-2 text-lg font-semibold text-white">{eventItem.remaining_tickets}</p>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                    <div className="p-4 border rounded-3xl border-white/10 bg-white/5">
                       <p className="text-sm uppercase tracking-[0.25em] text-white/40">Total places</p>
                       <p className="mt-2 text-lg font-semibold text-white">{eventItem.ticket_quantity}</p>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2 text-sm text-white/70">
+                  <div className="flex flex-wrap gap-2 mt-4 text-sm text-white/70">
                     <span>{eventItem.video_url ? 'Vid�o configur�e' : 'Image configur�e'}</span>
                     <span>�</span>
                     <span>{eventItem.buyers?.length ? `${eventItem.buyers.length} acheteur(s)` : 'Aucun acheteur encore'}</span>
@@ -372,7 +393,7 @@ function AdminEvents() {
                   ) : null}
 
                   {editingId === eventItem.id && editForm ? (
-                    <div className="mt-6 space-y-4 rounded-3xl border border-white/10 bg-black/30 p-6">
+                    <div className="p-6 mt-6 space-y-4 border rounded-3xl border-white/10 bg-black/30">
                       <h4 className="text-lg font-semibold text-white">Modifier l'�v�nement</h4>
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block text-white/70">
@@ -380,7 +401,7 @@ function AdminEvents() {
                           <input
                             value={editForm.title}
                             onChange={(e) => handleEditChange('title', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                         <label className="block text-white/70">
@@ -388,7 +409,7 @@ function AdminEvents() {
                           <input
                             value={editForm.category}
                             onChange={(e) => handleEditChange('category', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                       </div>
@@ -399,7 +420,7 @@ function AdminEvents() {
                           <input
                             value={editForm.city}
                             onChange={(e) => handleEditChange('city', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                         <label className="block text-white/70">
@@ -407,7 +428,7 @@ function AdminEvents() {
                           <input
                             value={editForm.venue}
                             onChange={(e) => handleEditChange('venue', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                       </div>
@@ -417,7 +438,7 @@ function AdminEvents() {
                         <input
                           value={editForm.organizer}
                           onChange={(e) => handleEditChange('organizer', e.target.value)}
-                          className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                          className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                         />
                       </label>
 
@@ -427,7 +448,7 @@ function AdminEvents() {
                           rows="4"
                           value={editForm.description}
                           onChange={(e) => handleEditChange('description', e.target.value)}
-                          className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                          className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                         />
                       </label>
 
@@ -437,7 +458,7 @@ function AdminEvents() {
                           <input
                             value={editForm.banner_url}
                             onChange={(e) => handleEditChange('banner_url', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                         <label className="block text-white/70">
@@ -445,12 +466,12 @@ function AdminEvents() {
                           <input
                             value={editForm.video_url}
                             onChange={(e) => handleEditChange('video_url', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                       </div>
 
-                      <div className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-4">
+                      <div className="p-4 space-y-3 border rounded-3xl border-white/10 bg-white/5">
                         <p className="text-sm uppercase tracking-[0.25em] text-white/70">Photo URLs</p>
                         {editForm.photo_urls.map((photoUrl, index) => (
                           <div key={index} className="flex gap-3">
@@ -458,13 +479,13 @@ function AdminEvents() {
                               value={photoUrl}
                               placeholder="Photo URL"
                               onChange={(e) => updatePhotoUrl(index, e.target.value, true)}
-                              className="w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                              className="w-full px-5 py-4 text-white border rounded-3xl border-white/10 bg-black/30"
                             />
                             {editForm.photo_urls.length > 1 ? (
                               <button
                                 type="button"
                                 onClick={() => removePhotoUrlField(index, true)}
-                                className="rounded-full border border-white/10 bg-rose-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-400"
+                                className="px-4 py-3 text-sm font-semibold text-white transition border rounded-full border-white/10 bg-rose-500 hover:bg-rose-400"
                               >
                                 Remove
                               </button>
@@ -474,7 +495,7 @@ function AdminEvents() {
                         <button
                           type="button"
                           onClick={() => addPhotoUrlField(true)}
-                          className="rounded-full bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+                          className="px-5 py-3 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400"
                         >
                           Add another photo
                         </button>
@@ -488,7 +509,7 @@ function AdminEvents() {
                             min="1"
                             value={editForm.ticket_quantity}
                             onChange={(e) => handleEditChange('ticket_quantity', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                         <label className="block text-white/70">
@@ -498,7 +519,7 @@ function AdminEvents() {
                             step="0.01"
                             value={editForm.ticket_price}
                             onChange={(e) => handleEditChange('ticket_price', e.target.value)}
-                            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+                            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
                           />
                         </label>
                       </div>
@@ -506,10 +527,10 @@ function AdminEvents() {
                       {editMessage ? <p className="text-sm text-neon">{editMessage}</p> : null}
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <button onClick={() => saveEdit(eventItem.id)} type="button" className="rounded-full bg-neon px-6 py-3 text-sm font-semibold text-night transition hover:bg-white">
+                        <button onClick={() => saveEdit(eventItem.id)} type="button" className="px-6 py-3 text-sm font-semibold transition rounded-full bg-neon text-night hover:bg-white">
                           Save changes
                         </button>
-                        <button onClick={cancelEdit} type="button" className="rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:border-neon">
+                        <button onClick={cancelEdit} type="button" className="px-6 py-3 text-sm font-semibold text-white transition border rounded-full border-white/10 hover:border-neon">
                           Cancel
                         </button>
                       </div>

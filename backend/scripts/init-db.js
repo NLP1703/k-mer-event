@@ -10,11 +10,24 @@ const syncDatabase = async () => {
     // Avoid blocking demo seeding and local UI testing.
     // Important: on évite `alter: true` car il déclenche des ALTER MySQL instables (InnoDB autoextend out of range)
     // qui peuvent casser la structure et empêcher un seed fiable.
+
+    // First attempt the regular sync.
     await sequelize.sync({ alter: false, force: false, logging: false });
+
+    // If carts is missing, the initial sync may have been skipped/aborted.
+    // Ensure the `carts` table exists by syncing only the Cart model.
+    try {
+      const { Cart } = await import('../models/Cart.js');
+      await Cart.sync({ alter: false, force: false });
+      console.log('✅ Ensured Cart table exists');
+    } catch (e) {
+      console.warn('⚠️ Could not ensure Cart table exists:', e?.message || e);
+    }
 
     console.log('✅ Database schema synced (attempted) successfully');
 
     // Seed demo events:
+
     // - Si RUN_DEMO_SEED=true, on seed.
     // - Sinon, on seed uniquement si la table `events` est vide.
     //   (évite le bug "aucun événement" après reset/migration)

@@ -38,3 +38,37 @@ export const authorize = (...allowedRoles) => (req, res, next) => {
   }
   next();
 };
+
+// Vérifie que l'utilisateur est admin OU est l'organizer propriétaire de l'event
+export const authorizeEventOwner = async (req, res, next) => {
+  // Admin => tout
+  if (req.user?.role === 'admin') return next();
+
+  const { id } = req.params;
+  const { Event } = await import('../models/Event.js');
+  const event = await Event.findByPk(id);
+
+  if (!event) return res.status(404).json({ message: 'Event not found' });
+
+  // current DB schema: no real organizer_id column.
+  // Ownership is therefore based on event.organizer (string) matching the organizer's identity.
+  // The only reliably-available field on req.user is `name` (from JWT).
+  const ownerIdentity = (req.user?.name ?? '').toString().trim();
+  const organizerField = (event.organizer ?? '').toString().trim();
+
+  if (!ownerIdentity || !organizerField) {
+    return res.status(403).json({ message: 'Forbidden: not your event' });
+  }
+
+  if (organizerField !== ownerIdentity) {
+    return res.status(403).json({ message: 'Forbidden: not your event' });
+  }
+
+
+  return next();
+};
+
+
+
+
+

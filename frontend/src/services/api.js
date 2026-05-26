@@ -73,6 +73,12 @@ export const downloadTicketPdf = async (bookingId) => {
   return response.data;
 };
 
+export const fetchCurrentUserMe = async () => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
+
+
 export const createEvent = async (payload) => {
   const response = await api.post('/events', payload);
   return response.data;
@@ -87,6 +93,18 @@ export const deleteEvent = async (eventId) => {
   const response = await api.delete(`/events/${eventId}`);
   return response.data;
 };
+
+// Admin workflow
+export const approveEvent = async (eventId) => {
+  const response = await api.post(`/events/${eventId}/approve`);
+  return response.data;
+};
+
+export const cancelEvent = async (eventId) => {
+  const response = await api.post(`/events/${eventId}/cancel`);
+  return response.data;
+};
+
 
 // Admin: users CRUD
 export const fetchUsersForAdmin = async () => {

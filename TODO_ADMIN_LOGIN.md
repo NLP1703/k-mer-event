@@ -1,11 +1,14 @@
-# TODO - Admin login "Invalid credentials"
+# TODO (Admin/Organizer permissions)
 
-- [ ] Set FORCE_ADMIN_PASSWORD=true to overwrite the admin password in DB when it already exists.
-- [ ] Run backend seed/init script to apply the change.
-- [ ] Try admin login with the expected password.
+## Status
+- Backend authorization already matches requirements (admin full access, organizer only own events + admin validation).
 
-Notes:
-- Default admin email in seed-admin.js: adminkmer@gmail.com
-- Default admin password in seed-admin.js: AdminKmer123
-- If ADMIN_EMAIL / ADMIN_PASSWORD are set in your .env, those values are used instead.
+## Checks (manual)
+- [ ] Verify organizer cannot update/delete events of other organizers (authorizeEventOwner)
+- [ ] Verify organizer cannot publish events directly (createEvent sets organizer events to `pending`; only admin endpoints approve/cancel)
+- [ ] Verify organizer can only list/delete bookings for events they own (organizerEventsController)
+- [ ] Verify admin endpoints are protected by `authorize('admin')`
+
+## Notes
+- If frontend exposes “admin approval” actions to organizer users, UI should also hide them (backend is the source of truth).
 

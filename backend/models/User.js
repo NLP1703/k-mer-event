@@ -10,7 +10,25 @@ export const User = sequelize.define(
   telephone: { type: DataTypes.STRING, allowNull: true },
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.ENUM('user', 'admin'), allowNull: false, defaultValue: 'user' },
+  role: { type: DataTypes.ENUM('user', 'admin', 'organizer'), allowNull: false, defaultValue: 'user' },
+  // organization_name may not exist in the current MySQL schema.
+  // Make it virtual so SELECT won't fail if the column is missing.
+  organization_name: {
+    type: DataTypes.VIRTUAL(DataTypes.STRING),
+    get() {
+      return null;
+    },
+    set(_val) {
+      // no-op (column may be missing)
+    },
+  },
+
   avatar_url: { type: DataTypes.STRING },
+
+  // Soft-delete flag to avoid FK constraint errors when users have bookings/carts.
+  // When true, admin should treat the user as deleted.
+  is_deleted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
 });
+
 

@@ -12,7 +12,9 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import paymentsRoutes from './routes/paymentsRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import adminBookingsRoutes from './routes/adminBookingsRoutes.js';
+import organizerRoutes from './routes/organizerRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+
 
 dotenv.config();
 
@@ -61,6 +63,10 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminBookingsRoutes);
+app.use('/api/organizer', organizerRoutes);
+
+
+
 
 
 

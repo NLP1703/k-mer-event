@@ -6,7 +6,7 @@ import { User } from '../models/User.js';
 
 export const listEvents = async (req, res, next) => {
   try {
-    const { search, city, category, status, admin } = req.query;
+    const { search, city, category, status, admin, organizer_id } = req.query;
     const filters = { where: {} };
 
     // Toujours coerce la valeur en string pour éviter tout crash si query.search est vide/undefined
@@ -27,9 +27,17 @@ export const listEvents = async (req, res, next) => {
 
     if (typeof city === 'string' && city.trim()) filters.where.city = city.trim();
     if (typeof category === 'string' && category.trim()) filters.where.category = category.trim();
-    if (typeof status === 'string' && status.trim()) filters.where.status = status.trim();
+    // Public view: only show published by default (admin can override with ?status=...)
+    if (admin === 'true') {
+      if (typeof status === 'string' && status.trim()) filters.where.status = status.trim();
+    } else {
+      filters.where.status = 'published';
+    }
+    // organizer_id filtering removed because the current DB schema may not include this column.
+    // If/when the column is added, we can re-enable this filter.
 
     const events = await Event.findAll({
+
       ...filters,
       order: [['start_date', 'ASC']],
       limit: 40,
@@ -115,17 +123,40 @@ export const createEvent = async (req, res, next) => {
       return res.status(422).json({ errors: errors.array() });
     }
 
-    const event = await Event.create({
+    const eventPayload = {
       ...req.body,
+      // Organizer: force son ownership
+      organizer_id: req.user?.role === 'organizer' ? req.user.id : null,
       ticket_price: Number(req.body.ticket_price),
       ticket_quantity: Number(req.body.ticket_quantity),
       remaining_tickets: Number(req.body.ticket_quantity),
+      // Workflow: organizer proposes -> pending, admin publishes -> published
+      status: req.user?.role === 'organizer' ? 'pending' : (req.body.status || 'published'),
       photo_urls: Array.isArray(req.body.photo_urls)
         ? req.body.photo_urls.filter(Boolean)
         : typeof req.body.photo_urls === 'string'
-        ? req.body.photo_urls.split(',').map((url) => url.trim()).filter(Boolean)
+        ? // accept JSON array string or comma-separated string
+          (() => {
+            const trimmed = req.body.photo_urls.trim();
+            if (!trimmed) return [];
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+              } catch {
+                // fallthrough
+              }
+            }
+            return req.body.photo_urls
+              .split(',')
+              .map((url) => url.trim())
+              .filter(Boolean);
+          })()
         : [],
-    });
+    };
+
+    const event = await Event.create(eventPayload);
+
     res.status(201).json({ event });
   } catch (error) {
     next(error);
@@ -140,6 +171,18 @@ export const updateEvent = async (req, res, next) => {
     }
 
     const updateData = { ...req.body };
+
+    // Security/ownership: organizer cannot change the owner identity.
+    // Since DB has no organizer_id, `event.organizer` is the ownership marker.
+    if (req.user?.role === 'organizer') {
+      // DB schema does not include organizer_id nor organization_name reliably.
+      // Ownership marker is `event.organizer` and matching middleware uses req.user.name.
+      updateData.organizer = (req.user?.name ?? '').toString().trim();
+    }
+
+    delete updateData.organizer_id;
+
+
     if (updateData.ticket_price != null) {
       updateData.ticket_price = Number(updateData.ticket_price);
     }
@@ -156,12 +199,67 @@ export const updateEvent = async (req, res, next) => {
       updateData.photo_urls = Array.isArray(updateData.photo_urls)
         ? updateData.photo_urls.filter(Boolean)
         : typeof updateData.photo_urls === 'string'
-        ? updateData.photo_urls.split(',').map((url) => url.trim()).filter(Boolean)
-        : [];
+          ? (() => {
+              const trimmed = updateData.photo_urls.trim();
+              if (!trimmed) return [];
+              if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                try {
+                  const parsed = JSON.parse(trimmed);
+                  return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+                } catch {
+                  // fallthrough
+                }
+              }
+              return updateData.photo_urls
+                .split(',')
+                .map((url) => url.trim())
+                .filter(Boolean);
+            })()
+          : [];
     }
+
 
     await event.update(updateData);
     res.json({ event });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelEventByAdmin = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+    const event = await Event.findByPk(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    // Admin can cancel pending events (and keep the system consistent with the propose/validate workflow)
+    if (event.status !== 'pending') {
+      return res.status(409).json({ message: 'Event is not pending' });
+    }
+
+    await event.update({ status: 'cancelled' });
+    return res.json({ event });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const approveEventByAdmin = async (req, res, next) => {
+  // Admin approves only pending events -> published
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+    const event = await Event.findByPk(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    if (event.status !== 'pending') {
+      return res.status(409).json({ message: 'Event is not pending' });
+    }
+
+    await event.update({ status: 'published', organizer_id: event.organizer_id ?? null });
+    return res.json({ event });
   } catch (error) {
     next(error);
   }

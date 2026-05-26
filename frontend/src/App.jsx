@@ -10,8 +10,11 @@ import Success from './pages/Success.jsx';
 import Bookings from './pages/Bookings.jsx';
 import AdminEvents from './pages/AdminEvents.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import OrganizerEvents from './pages/OrganizerEvents.jsx';
 import Layout from './components/Layout.jsx';
 import { useAuth } from './context/AuthContext.jsx';
+import Profile from './pages/Profile.jsx';
+
 
 
 function App() {
@@ -28,13 +31,14 @@ function App() {
         <Route path="checkout" element={user ? <Checkout /> : <Navigate to="/login" />} />
         <Route path="success" element={<Success />} />
         <Route path="bookings" element={user ? <Bookings /> : <Navigate to="/login" />} />
+        <Route path="profile" element={user ? <Profile /> : <Navigate to="/login" />} />
         <Route path="dashboard" element={user?.role === 'admin' ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="admin/events" element={user?.role === 'admin' ? <AdminEvents /> : <Navigate to="/login" />} />
+        <Route path="admin/events" element={user?.role === 'admin' ? <AdminEvents /> : user?.role === 'organizer' ? <OrganizerEvents /> : <Navigate to="/login" />} />
         <Route path="admin/users" element={user?.role === 'admin' ? <AdminUsers /> : <Navigate to="/login" />} />
       </Route>
     </Routes>
   );
 }
 
-
 export default App;
+

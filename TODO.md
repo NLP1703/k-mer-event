@@ -1,8 +1,8 @@
 # TODO
 
-- [ ] Add admin endpoint to list bookings by user
-- [ ] Add frontend page/component to display selected user's bookings (admin)
-- [ ] Wire admin UI action from AdminUsers to open bookings
-- [ ] Add axios service functions for new endpoint
-- [ ] Test: admin can view bookings for a user; non-admin gets 403
+- [ ] Fix missing `carts` table so `GET /api/cart` stops failing with MySQL error 1146.
+- [x] Update `backend/scripts/init-db.js` to ensure Cart table creation even when full `sequelize.sync()` cannot complete.
+
+- [ ] Optionally update `DATABASE-SCHEMA.md` to include `carts`.
+
 

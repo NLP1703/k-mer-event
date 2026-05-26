@@ -8,7 +8,15 @@ function Register() {
 
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ name: '', prenom: '', telephone: '', email: '', password: '' });
+  const [form, setForm] = useState({
+    name: '',
+    prenom: '',
+    telephone: '',
+    email: '',
+    password: '',
+    role: 'user',
+    organization_name: '',
+  });
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -44,7 +52,7 @@ function Register() {
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
             required
           />
         </label>
@@ -55,7 +63,7 @@ function Register() {
             type="text"
             value={form.prenom}
             onChange={(e) => setForm({ ...form, prenom: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
             required
           />
         </label>
@@ -66,7 +74,7 @@ function Register() {
             type="tel"
             value={form.telephone}
             onChange={(e) => setForm({ ...form, telephone: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
             required
           />
         </label>
@@ -79,10 +87,51 @@ function Register() {
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
             required
           />
         </label>
+
+        <div className="space-y-2">
+          <p className="text-sm text-white/60">Je suis un</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, role: 'user' }))}
+              className={
+                form.role === 'user'
+                  ? 'px-4 py-2 rounded-full bg-neon text-night font-semibold'
+                  : 'px-4 py-2 rounded-full border border-white/10 text-white/80'
+              }
+            >
+              Client
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, role: 'organizer' }))}
+              className={
+                form.role === 'organizer'
+                  ? 'px-4 py-2 rounded-full bg-neon text-night font-semibold'
+                  : 'px-4 py-2 rounded-full border border-white/10 text-white/80'
+              }
+            >
+              Organisateur
+            </button>
+          </div>
+        </div>
+
+        {form.role === 'organizer' ? (
+          <label className="block text-sm text-white/60">
+            Organization name
+            <input
+              type="text"
+              value={form.organization_name}
+              onChange={(e) => setForm((f) => ({ ...f, organization_name: e.target.value }))}
+              className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
+              required
+            />
+          </label>
+        ) : null}
 
         <label className="block text-sm text-white/60">
           Password
@@ -90,17 +139,18 @@ function Register() {
             type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="w-full px-5 py-4 mt-3 text-white border rounded-3xl border-white/10 bg-black/30"
             required
             minLength={8}
           />
         </label>
 
+
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
         <button
           type="submit"
-          className="w-full rounded-full bg-neon px-6 py-4 text-base font-semibold text-night transition hover:bg-white"
+          className="w-full px-6 py-4 text-base font-semibold transition rounded-full bg-neon text-night hover:bg-white"
         >
           Sign up
         </button>
