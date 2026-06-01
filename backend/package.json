@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "node scripts/init-db.js"
+    "migrate": "node scripts/init-db.js",
+    "migrate:video-url": "node scripts/migrate-video-url.js up",
+    "migrate:video-url:down": "node scripts/migrate-video-url.js down",
+    "migrate:profile-picture": "node scripts/migrate-profile-picture.js up",
+    "migrate:profile-picture:down": "node scripts/migrate-profile-picture.js down"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

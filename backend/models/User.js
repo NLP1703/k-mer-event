@@ -25,6 +25,14 @@ export const User = sequelize.define(
 
   avatar_url: { type: DataTypes.STRING },
 
+  // Persistent profile picture (URL). Stored as VARCHAR(1000) NULL.
+  // Migration: backend/scripts/migrate-profile-picture.js (also auto-ensured by init-db).
+  profile_picture: {
+    type: DataTypes.STRING(1000),
+    allowNull: true,
+    defaultValue: null,
+  },
+
   // Soft-delete flag to avoid FK constraint errors when users have bookings/carts.
   // When true, admin should treat the user as deleted.
   is_deleted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },

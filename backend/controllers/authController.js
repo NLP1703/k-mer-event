@@ -80,8 +80,18 @@ export const loginUser = async (req, res, next) => {
 
 export const currentUser = async (req, res, next) => {
   try {
-    const { id, name, email, role } = req.user;
-    res.json({ user: { id, name, email, role } });
+    const { id, name, email, role, telephone, profile_picture, avatar_url } = req.user;
+    res.json({
+      user: {
+        id,
+        name,
+        email,
+        role,
+        telephone: telephone ?? null,
+        profile_picture: profile_picture ?? null,
+        avatar_url: avatar_url ?? null,
+      },
+    });
   } catch (error) {
     next(error);
   }

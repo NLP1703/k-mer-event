@@ -1,188 +1,395 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { fetchEvent } from '../services/api.js';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import {
+  CalendarDays,
+  MapPin,
+  User as UserIcon,
+  Ticket,
+  Minus,
+  Plus,
+  ShoppingBag,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
+import { fetchEvent } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { Button, Card, Badge, Skeleton } from '../components/ui';
+
+const normalizePhotoUrls = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value !== 'string') return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      // fallthrough
+    }
+  }
+  return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+};
+
+const isPlayableVideoUrl = (url) => {
+  if (typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 1000) return false;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:')) return false;
+  return trimmed.startsWith('/') || lower.startsWith('http://') || lower.startsWith('https://');
+};
+
+const guessVideoMime = (url) => {
+  const lower = url.toLowerCase().split('?')[0];
+  if (lower.endsWith('.webm')) return 'video/webm';
+  if (lower.endsWith('.ogv') || lower.endsWith('.ogg')) return 'video/ogg';
+  if (lower.endsWith('.mov')) return 'video/quicktime';
+  return 'video/mp4';
+};
+
+const formatPrice = (price) => {
+  const n = Number(price);
+  if (!Number.isFinite(n)) return 'FCFA 0';
+  return `FCFA ${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}`;
+};
+
+function EventDetailsSkeleton() {
+  return (
+    <div className="space-y-8">
+      <Skeleton className="h-[420px] w-full rounded-3xl" />
+      <div className="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
+        <div className="space-y-4">
+          <Skeleton className="w-24 h-4" />
+          <Skeleton className="h-10 w-3/4" />
+          <Skeleton className="w-full h-4" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+        <Skeleton className="h-64 rounded-2xl" />
+      </div>
+    </div>
+  );
+}
 
 function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
+
   const [event, setEvent] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success'); // 'success' | 'error'
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    setVideoFailed(false);
+    setActiveImage(0);
     fetchEvent(id)
-      .then((data) => setEvent(data.event))
-      .catch(console.error);
+      .then((data) => {
+        if (!cancelled) setEvent(data.event);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error(err);
+          setLoadError(err?.response?.data?.message || 'Impossible de charger l’événement');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
+  const photoUrls = useMemo(() => normalizePhotoUrls(event?.photo_urls), [event]);
+  const allImages = useMemo(() => {
+    const base = [event?.banner_url, ...photoUrls].filter(Boolean);
+    return base.length ? base : ['/placeholder.jpg'];
+  }, [event, photoUrls]);
+
+  const showVideo = !!event && isPlayableVideoUrl(event.video_url) && !videoFailed;
+  const remaining = Number(event?.remaining_tickets ?? 0);
+  const isSoldOut = remaining <= 0;
+
+  const totalPrice = Number(event?.ticket_price ?? 0) * quantity;
+
   const handleAddToCart = async () => {
+    setMessage('');
     if (!user) {
-      navigate('/login');
+      navigate('/login', { state: { returnTo: `/event/${id}` } });
       return;
     }
-
     try {
+      setSubmitting(true);
       await addToCart(event.id, quantity);
-      setMessage('Added to cart successfully');
+      setMessageType('success');
+      setMessage(`${quantity} billet${quantity > 1 ? 's' : ''} ajouté${quantity > 1 ? 's' : ''} au panier`);
     } catch (error) {
-      setMessage(error.message || 'Unable to add to cart');
+      setMessageType('error');
+      setMessage(error.message || 'Impossible d’ajouter au panier');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (!event) {
-    return <p className="text-white/70">Loading event details...</p>;
+  if (loading) return <EventDetailsSkeleton />;
+
+  if (loadError) {
+    return (
+      <Card className="p-10 text-center">
+        <AlertCircle className="w-10 h-10 mx-auto text-danger" />
+        <p className="mt-4 text-fg">{loadError}</p>
+        <Button variant="secondary" size="md" to="/" className="mt-6">
+          <ArrowLeft className="w-4 h-4" />
+          Retour à l’accueil
+        </Button>
+      </Card>
+    );
   }
 
+  if (!event) {
+    return (
+      <Card className="p-10 text-center">
+        <p className="text-fg">Événement introuvable.</p>
+      </Card>
+    );
+  }
+
+  const mainImage = allImages[activeImage] || '/placeholder.jpg';
+
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-      <section className="glass-card rounded-[36px] border border-white/10 overflow-hidden">
-        {(() => {
-          const normalizePhotoUrls = (value) => {
-            if (!value) return [];
-            if (Array.isArray(value)) return value.filter(Boolean);
+    <div className="space-y-8">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-muted">
+        <Link to="/" className="hover:text-fg">Accueil</Link>
+        <span className="text-subtle">/</span>
+        <span className="text-fg truncate">{event.title}</span>
+      </div>
 
-            // If Sequelize returns TEXT, it can come as a string
-            if (typeof value === 'string') {
-              const trimmed = value.trim();
-
-              // JSON array string: "["...", ...]"
-              if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                try {
-                  const parsed = JSON.parse(trimmed);
-                  return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-                } catch {
-                  // fallthrough
-                }
-              }
-
-              // comma-separated string
-              return value
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean);
-            }
-
-            return [];
-          };
-
-          const photoUrls = normalizePhotoUrls(event.photo_urls);
-          const mainImage = photoUrls[0] || event.banner_url || '/placeholder.jpg';
-
-          if (event.video_url) {
-            return (
-              <video
-                controls
-                className="h-[420px] w-full object-cover bg-black"
-                poster={mainImage}
-              >
-                <source src={event.video_url} />
-                Votre navigateur ne supporte pas la lecture vidéo.
-              </video>
-            );
-          }
-
-          return (
+      {/* Hero media */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overflow-hidden border rounded-3xl border-border bg-bg-elevated"
+      >
+        <div className="relative">
+          {showVideo ? (
+            <video
+              controls
+              width="100%"
+              preload="metadata"
+              poster={mainImage}
+              className="h-[420px] w-full object-cover bg-black"
+              onError={() => setVideoFailed(true)}
+            >
+              <source src={event.video_url} type={guessVideoMime(event.video_url)} />
+              Votre navigateur ne supporte pas la lecture vidéo.
+            </video>
+          ) : (
             <img
               src={mainImage}
               alt={event.title}
               className="h-[420px] w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder.jpg';
+              }}
             />
-          );
-        })()}
-        {(() => {
-          const normalizePhotoUrls = (value) => {
-            if (!value) return [];
-            if (Array.isArray(value)) return value.filter(Boolean);
-            if (typeof value === 'string') {
-              const trimmed = value.trim();
-              // JSON array string
-              if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                try {
-                  const parsed = JSON.parse(trimmed);
-                  return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-                } catch {
-                  // fallthrough
-                }
-              }
-              // comma-separated string
-              return value
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean);
-            }
-            return [];
-          };
+          )}
 
-          const photoUrls = normalizePhotoUrls(event.photo_urls);
-          if (photoUrls.length > 1 && !event.video_url) {
-            return (
-              <div className="grid gap-3 p-4 sm:grid-cols-3">
-                {photoUrls.slice(1).map((photoUrl, index) => (
-                  <img
-                    key={index}
-                    src={photoUrl}
-                    alt={`${event.title} photo ${index + 2}`}
-                    className="object-cover w-full h-36 rounded-3xl"
-                  />
-                ))}
+          {!showVideo ? (
+            <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="primary">{event.category}</Badge>
+                {isSoldOut ? <Badge variant="danger">Complet</Badge> : null}
               </div>
-            );
-          }
-          return null;
-        })()}
-        <div className="p-10">
-          <div className="flex flex-wrap items-center gap-4 text-sm uppercase tracking-[0.25em] text-neon">
-            <span>{event.category}</span>
-            <span>{new Date(event.start_date).toLocaleDateString()}</span>
-            <span>{event.city}</span>
-          </div>
-          <h1 className="mt-6 text-4xl font-semibold text-white">{event.title}</h1>
-          <p className="max-w-3xl mt-4 text-white/70">{event.description}</p>
-          <div className="grid gap-4 mt-8 md:grid-cols-2">
-            <div className="p-6 border rounded-3xl border-white/10 bg-black/20">
-              <h2 className="text-lg font-semibold text-white">Venue</h2>
-              <p className="mt-3 text-white/70">{event.venue}</p>
-              <p className="mt-4 text-sm text-white/60">Organizer: {event.organizer}</p>
+              <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{event.title}</h1>
             </div>
-            <div className="p-6 border rounded-3xl border-white/10 bg-black/20">
-              <h2 className="text-lg font-semibold text-white">Ticket info</h2>
-              <p className="mt-3 text-white/70">Price: FCFA {event.ticket_price.toFixed(0)}</p>
-              <p className="mt-2 text-white/70">Available: {event.remaining_tickets}</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 mt-8 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-3 px-4 py-3 border rounded-3xl border-white/10 bg-black/20">
-              <button
-                type="button"
-                onClick={() => setQuantity((qty) => Math.max(1, qty - 1))}
-                className="px-3 py-2 transition border rounded-full border-white/10 text-white/80 hover:border-neon hover:text-neon"
-              >
-                -
-              </button>
-              <span className="w-12 text-lg text-center text-white">{quantity}</span>
-              <button
-                type="button"
-                onClick={() => setQuantity((qty) => Math.min(event.remaining_tickets, qty + 1))}
-                className="px-3 py-2 transition border rounded-full border-white/10 text-white/80 hover:border-neon hover:text-neon"
-              >
-                +
-              </button>
-            </div>
-            <button onClick={handleAddToCart} className="px-8 py-4 text-base font-semibold transition rounded-full bg-neon text-night hover:bg-white">
-              Add {quantity} ticket{quantity > 1 ? 's' : ''} to cart
-            </button>
-          </div>
-          {message ? <p className="mt-4 text-sm text-neon">{message}</p> : null}
+          ) : null}
         </div>
-      </section>
-    </motion.div>
+
+        {/* Gallery thumbnails */}
+        {allImages.length > 1 && !showVideo ? (
+          <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-5 md:grid-cols-6">
+            {allImages.map((url, index) => (
+              <button
+                key={`${url}-${index}`}
+                type="button"
+                onClick={() => setActiveImage(index)}
+                aria-label={`Voir image ${index + 1}`}
+                aria-pressed={activeImage === index}
+                className={`relative overflow-hidden rounded-lg aspect-[4/3] transition ${
+                  activeImage === index
+                    ? 'ring-2 ring-primary ring-offset-2 ring-offset-bg-elevated'
+                    : 'opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img src={url} alt="" className="object-cover w-full h-full" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </motion.section>
+
+      {/* Content + booking sidebar */}
+      <div className="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
+        {/* Left column: content */}
+        <div className="space-y-8">
+          {showVideo ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">{event.category}</Badge>
+              {isSoldOut ? <Badge variant="danger">Complet</Badge> : null}
+              <h1 className="w-full mt-2 text-3xl font-semibold tracking-tight text-fg md:text-4xl">
+                {event.title}
+              </h1>
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Card className="p-4">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Date</p>
+              <p className="mt-1 text-sm font-medium text-fg">
+                {new Date(event.start_date).toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <MapPin className="w-4 h-4 text-primary" />
+              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Lieu</p>
+              <p className="mt-1 text-sm font-medium text-fg truncate" title={`${event.venue} · ${event.city}`}>
+                {event.venue}
+              </p>
+              <p className="text-xs text-muted">{event.city}</p>
+            </Card>
+            <Card className="p-4">
+              <UserIcon className="w-4 h-4 text-primary" />
+              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Organisateur</p>
+              <p className="mt-1 text-sm font-medium text-fg truncate">{event.organizer}</p>
+            </Card>
+          </div>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fg">À propos de l’événement</h2>
+            <p className="mt-3 leading-relaxed whitespace-pre-line text-muted">
+              {event.description}
+            </p>
+          </section>
+        </div>
+
+        {/* Right column: sticky booking card */}
+        <aside>
+          <div className="lg:sticky lg:top-24">
+            <Card className="p-6">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-subtle">Prix unitaire</p>
+                  <p className="text-3xl font-semibold text-fg">{formatPrice(event.ticket_price)}</p>
+                </div>
+                {isSoldOut ? (
+                  <Badge variant="danger">Complet</Badge>
+                ) : (
+                  <Badge variant="success">
+                    {remaining} dispo{remaining > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted">
+                  Quantité
+                </label>
+                <div className="flex items-center justify-between p-1 border rounded-full border-border bg-bg">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    disabled={quantity <= 1 || isSoldOut}
+                    aria-label="Diminuer la quantité"
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full text-fg hover:bg-surface-hover disabled:opacity-40"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-12 text-lg font-semibold text-center text-fg">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.min(remaining || 1, q + 1))}
+                    disabled={quantity >= remaining || isSoldOut}
+                    aria-label="Augmenter la quantité"
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full text-fg hover:bg-surface-hover disabled:opacity-40"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-5 mt-5 border-t border-border">
+                <span className="text-sm text-muted">Total</span>
+                <span className="text-xl font-semibold text-fg">{formatPrice(totalPrice)}</span>
+              </div>
+
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleAddToCart}
+                disabled={isSoldOut || submitting}
+                className="w-full mt-6"
+              >
+                {isSoldOut ? (
+                  <>
+                    <Ticket className="w-4 h-4" />
+                    Complet
+                  </>
+                ) : submitting ? (
+                  'Ajout...'
+                ) : (
+                  <>
+                    <ShoppingBag className="w-4 h-4" />
+                    Ajouter au panier
+                  </>
+                )}
+              </Button>
+
+              {message ? (
+                <p
+                  className={`mt-4 text-sm flex items-start gap-2 ${
+                    messageType === 'success' ? 'text-success' : 'text-danger'
+                  }`}
+                >
+                  {messageType === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  )}
+                  <span>{message}</span>
+                </p>
+              ) : null}
+
+              <p className="mt-4 text-xs text-subtle">
+                Paiement sécurisé · Billet QR envoyé après confirmation
+              </p>
+            </Card>
+          </div>
+        </aside>
+      </div>
+    </div>
   );
 }
 
 export default EventDetails;
-

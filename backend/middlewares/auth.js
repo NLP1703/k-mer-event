@@ -39,32 +39,50 @@ export const authorize = (...allowedRoles) => (req, res, next) => {
   next();
 };
 
-// Vérifie que l'utilisateur est admin OU est l'organizer propriétaire de l'event
+// Vérifie que l'utilisateur est admin OU est l'organizer propriétaire de l'event.
+// Attache `req.event` pour éviter un second findByPk dans le controller.
 export const authorizeEventOwner = async (req, res, next) => {
-  // Admin => tout
-  if (req.user?.role === 'admin') return next();
+  try {
+    const { id } = req.params;
+    const { Event } = await import('../models/Event.js');
+    const event = await Event.findByPk(id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
 
-  const { id } = req.params;
-  const { Event } = await import('../models/Event.js');
-  const event = await Event.findByPk(id);
+    req.event = event;
 
+    // Admin => tout
+    if (req.user?.role === 'admin') return next();
+
+    // Organizer ownership: prefer organizer_id when reliably populated, otherwise
+    // fall back to organizer (string) matching req.user.name (current DB schema).
+    if (event.organizer_id && req.user?.id && event.organizer_id === req.user.id) {
+      return next();
+    }
+
+    const ownerIdentity = (req.user?.name ?? '').toString().trim();
+    const organizerField = (event.organizer ?? '').toString().trim();
+
+    if (!ownerIdentity || !organizerField || organizerField !== ownerIdentity) {
+      return res.status(403).json({ message: 'Forbidden: not your event' });
+    }
+
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// Refuse aux organizers la modification/suppression d'un event déjà publié ou annulé.
+// (Empêche un organizer de supprimer un event publié avec des billets vendus.)
+export const restrictOrganizerToPending = (req, res, next) => {
+  if (req.user?.role !== 'organizer') return next();
+  const event = req.event;
   if (!event) return res.status(404).json({ message: 'Event not found' });
-
-  // current DB schema: no real organizer_id column.
-  // Ownership is therefore based on event.organizer (string) matching the organizer's identity.
-  // The only reliably-available field on req.user is `name` (from JWT).
-  const ownerIdentity = (req.user?.name ?? '').toString().trim();
-  const organizerField = (event.organizer ?? '').toString().trim();
-
-  if (!ownerIdentity || !organizerField) {
-    return res.status(403).json({ message: 'Forbidden: not your event' });
+  if (event.status !== 'pending' && event.status !== 'draft') {
+    return res
+      .status(403)
+      .json({ message: 'Forbidden: organizers can only modify pending/draft events' });
   }
-
-  if (organizerField !== ownerIdentity) {
-    return res.status(403).json({ message: 'Forbidden: not your event' });
-  }
-
-
   return next();
 };
 

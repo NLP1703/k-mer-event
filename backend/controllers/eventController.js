@@ -4,6 +4,47 @@ import { Event } from '../models/Event.js';
 import { Booking } from '../models/Booking.js';
 import { User } from '../models/User.js';
 
+// Accept http(s):// or protocol-relative // URLs, plus relative app paths (/uploads/...).
+// Reject javascript:, data:, anything else; trim and cap at 1000 chars to match DB column.
+const sanitizeUrl = (raw) => {
+  if (raw == null) return null;
+  const value = String(raw).trim();
+  if (!value) return null;
+  if (value.length > 1000) return null;
+  const lower = value.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:')) return null;
+  if (
+    value.startsWith('/') ||
+    lower.startsWith('http://') ||
+    lower.startsWith('https://')
+  ) {
+    return value;
+  }
+  return null;
+};
+
+const normalizePhotoUrls = (raw) => {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch {
+        // fallthrough
+      }
+    }
+    return trimmed
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 export const listEvents = async (req, res, next) => {
   try {
     const { search, city, category, status, admin, organizer_id } = req.query;
@@ -123,36 +164,51 @@ export const createEvent = async (req, res, next) => {
       return res.status(422).json({ errors: errors.array() });
     }
 
+    const isOrganizer = req.user?.role === 'organizer';
+
+    const {
+      title,
+      description,
+      category,
+      venue,
+      city,
+      organizer,
+      banner_url,
+      video_url,
+      photo_urls,
+      start_date,
+      end_date,
+      ticket_price,
+      ticket_quantity,
+      tags,
+      social_links,
+      status: requestedStatus,
+    } = req.body;
+
+    const quantity = Number(ticket_quantity);
+
     const eventPayload = {
-      ...req.body,
-      // Organizer: force son ownership
-      organizer_id: req.user?.role === 'organizer' ? req.user.id : null,
-      ticket_price: Number(req.body.ticket_price),
-      ticket_quantity: Number(req.body.ticket_quantity),
-      remaining_tickets: Number(req.body.ticket_quantity),
-      // Workflow: organizer proposes -> pending, admin publishes -> published
-      status: req.user?.role === 'organizer' ? 'pending' : (req.body.status || 'published'),
-      photo_urls: Array.isArray(req.body.photo_urls)
-        ? req.body.photo_urls.filter(Boolean)
-        : typeof req.body.photo_urls === 'string'
-        ? // accept JSON array string or comma-separated string
-          (() => {
-            const trimmed = req.body.photo_urls.trim();
-            if (!trimmed) return [];
-            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-              try {
-                const parsed = JSON.parse(trimmed);
-                return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-              } catch {
-                // fallthrough
-              }
-            }
-            return req.body.photo_urls
-              .split(',')
-              .map((url) => url.trim())
-              .filter(Boolean);
-          })()
-        : [],
+      title,
+      description,
+      category,
+      venue,
+      city,
+      // Organizer can never spoof another organizer name on create.
+      organizer: isOrganizer ? (req.user?.name ?? '').toString().trim() : organizer,
+      banner_url: sanitizeUrl(banner_url),
+      video_url: sanitizeUrl(video_url),
+      photo_urls: normalizePhotoUrls(photo_urls),
+      start_date,
+      end_date,
+      ticket_price: Number(ticket_price),
+      ticket_quantity: quantity,
+      remaining_tickets: quantity,
+      tags,
+      social_links,
+      // Workflow: organizer proposes -> pending, admin can choose.
+      status: isOrganizer ? 'pending' : (requestedStatus || 'published'),
+      // Ownership: org events get the organizer's id (virtual today, real when migrated)
+      organizer_id: isOrganizer ? req.user.id : null,
     };
 
     const event = await Event.create(eventPayload);
@@ -170,18 +226,49 @@ export const updateEvent = async (req, res, next) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    const updateData = { ...req.body };
+    const isOrganizer = req.user?.role === 'organizer';
+
+    // Whitelist of fields an organizer is allowed to mutate.
+    // Admin may edit anything except identifier columns.
+    const organizerAllowed = new Set([
+      'title',
+      'description',
+      'category',
+      'venue',
+      'city',
+      'banner_url',
+      'video_url',
+      'photo_urls',
+      'start_date',
+      'end_date',
+      'ticket_price',
+      'ticket_quantity',
+      'tags',
+      'social_links',
+    ]);
+
+    const updateData = {};
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key === 'id' || key === 'organizer_id') continue;
+      if (isOrganizer && !organizerAllowed.has(key)) continue;
+      updateData[key] = value;
+    }
 
     // Security/ownership: organizer cannot change the owner identity.
     // Since DB has no organizer_id, `event.organizer` is the ownership marker.
-    if (req.user?.role === 'organizer') {
-      // DB schema does not include organizer_id nor organization_name reliably.
-      // Ownership marker is `event.organizer` and matching middleware uses req.user.name.
+    if (isOrganizer) {
       updateData.organizer = (req.user?.name ?? '').toString().trim();
     }
 
-    delete updateData.organizer_id;
-
+    if ('banner_url' in updateData) {
+      updateData.banner_url = sanitizeUrl(updateData.banner_url);
+    }
+    if ('video_url' in updateData) {
+      updateData.video_url = sanitizeUrl(updateData.video_url);
+    }
+    if ('photo_urls' in updateData) {
+      updateData.photo_urls = normalizePhotoUrls(updateData.photo_urls);
+    }
 
     if (updateData.ticket_price != null) {
       updateData.ticket_price = Number(updateData.ticket_price);
@@ -195,29 +282,6 @@ export const updateEvent = async (req, res, next) => {
       updateData.ticket_quantity = requestedQuantity;
       updateData.remaining_tickets = Math.max(requestedQuantity - soldTickets, 0);
     }
-    if (updateData.photo_urls != null) {
-      updateData.photo_urls = Array.isArray(updateData.photo_urls)
-        ? updateData.photo_urls.filter(Boolean)
-        : typeof updateData.photo_urls === 'string'
-          ? (() => {
-              const trimmed = updateData.photo_urls.trim();
-              if (!trimmed) return [];
-              if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-                try {
-                  const parsed = JSON.parse(trimmed);
-                  return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-                } catch {
-                  // fallthrough
-                }
-              }
-              return updateData.photo_urls
-                .split(',')
-                .map((url) => url.trim())
-                .filter(Boolean);
-            })()
-          : [];
-    }
-
 
     await event.update(updateData);
     res.json({ event });
@@ -258,7 +322,7 @@ export const approveEventByAdmin = async (req, res, next) => {
       return res.status(409).json({ message: 'Event is not pending' });
     }
 
-    await event.update({ status: 'published', organizer_id: event.organizer_id ?? null });
+    await event.update({ status: 'published' });
     return res.json({ event });
   } catch (error) {
     next(error);
@@ -277,4 +341,3 @@ export const deleteEvent = async (req, res, next) => {
     next(error);
   }
 };
-

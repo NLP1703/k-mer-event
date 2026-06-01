@@ -11,6 +11,47 @@ const syncDatabase = async () => {
     // Important: on évite `alter: true` car il déclenche des ALTER MySQL instables (InnoDB autoextend out of range)
     // qui peuvent casser la structure et empêcher un seed fiable.
 
+    // Ensure schema additions Sequelize won't perform itself (we run with alter:false).
+    // Add events.video_url if missing — required for video persistence.
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT COUNT(*) AS cnt
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'events'
+           AND COLUMN_NAME = 'video_url'`
+      );
+      const hasColumn = Number(rows?.[0]?.cnt || 0) > 0;
+      if (!hasColumn) {
+        await sequelize.query(
+          "ALTER TABLE `events` ADD COLUMN `video_url` VARCHAR(1000) NULL;"
+        );
+        console.log('✅ Added missing column events.video_url');
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not ensure events.video_url column:', e?.message || e);
+    }
+
+    // Ensure users.profile_picture column exists (persistent VARCHAR(1000)).
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT COUNT(*) AS cnt
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'profile_picture'`
+      );
+      const hasColumn = Number(rows?.[0]?.cnt || 0) > 0;
+      if (!hasColumn) {
+        await sequelize.query(
+          "ALTER TABLE `users` ADD COLUMN `profile_picture` VARCHAR(1000) NULL;"
+        );
+        console.log('✅ Added missing column users.profile_picture');
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not ensure users.profile_picture column:', e?.message || e);
+    }
+
     // First attempt the regular sync.
     await sequelize.sync({ alter: false, force: false, logging: false });
 

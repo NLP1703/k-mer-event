@@ -25,22 +25,13 @@ export const Event = sequelize.define('Event', {
     },
   },
 
-  // video_url: DB column may not exist in some environments.
-
-  // Make it VIRTUAL so Sequelize doesn't SELECT it (prevents:
-  // "Unknown column 'video_url' in 'field list'").
+  // Persistent video URL. Stored as VARCHAR(1000) NULL.
+  // Migration: backend/scripts/migrate-video-url.js (also handled by init-db sync).
   video_url: {
-    type: DataTypes.VIRTUAL(DataTypes.STRING),
-    get() {
-      return null;
-    },
-    set(_val) {
-      // no-op: column missing in DB
-    },
+    type: DataTypes.STRING(1000),
+    allowNull: true,
+    defaultValue: null,
   },
-
-
-
 
   start_date: { type: DataTypes.DATE, allowNull: false },
   end_date: { type: DataTypes.DATE },
@@ -64,5 +55,3 @@ export const Event = sequelize.define('Event', {
     },
   },
 });
-
-

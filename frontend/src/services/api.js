@@ -78,6 +78,39 @@ export const fetchCurrentUserMe = async () => {
   return response.data;
 };
 
+// Profile management
+export const fetchMyFullProfile = async () => {
+  const response = await api.get('/users/me');
+  return response.data;
+};
+
+export const changePassword = async ({ currentPassword, newPassword, confirmPassword }) => {
+  const response = await api.put('/users/change-password', {
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  });
+  return response.data;
+};
+
+export const updateProfilePicture = async (profilePictureUrl) => {
+  const response = await api.put('/users/profile-picture', {
+    profile_picture: profilePictureUrl,
+  });
+  return response.data;
+};
+
+// Organizer statistics
+export const fetchOrganizerStatistics = async () => {
+  const response = await api.get('/organizer/statistics');
+  return response.data;
+};
+
+export const fetchOrganizerEventStatistics = async () => {
+  const response = await api.get('/organizer/statistics/events');
+  return response.data;
+};
+
 
 export const createEvent = async (payload) => {
   const response = await api.post('/events', payload);

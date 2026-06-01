@@ -13,6 +13,7 @@ import paymentsRoutes from './routes/paymentsRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import adminBookingsRoutes from './routes/adminBookingsRoutes.js';
 import organizerRoutes from './routes/organizerRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 
@@ -64,6 +65,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminBookingsRoutes);
 app.use('/api/organizer', organizerRoutes);
+app.use('/api/users', userRoutes);
 
 
 

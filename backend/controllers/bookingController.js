@@ -157,6 +157,17 @@ export const downloadTicketPdf = async (req, res, next) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    // Block download for expired tickets (event start date in the past)
+    // or cancelled bookings. Pending bookings can also be downloaded only after
+    // confirmation, but we keep the current behavior of allowing pending.
+    if (booking.status === 'cancelled') {
+      return res.status(403).json({ message: 'Ticket annulé, téléchargement impossible' });
+    }
+    const eventStart = booking.event?.start_date ? new Date(booking.event.start_date) : null;
+    if (eventStart && Number.isFinite(eventStart.getTime()) && eventStart.getTime() < Date.now()) {
+      return res.status(403).json({ message: 'Billet expiré, téléchargement impossible' });
+    }
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="ticket-${booking.booking_number}.pdf"`);
 
@@ -186,10 +197,42 @@ export const downloadTicketPdf = async (req, res, next) => {
   }
 };
 
+// Compute the effective ticket status for a booking:
+// - cancelled     => booking.status === 'cancelled'
+// - expired       => event.start_date is strictly in the past
+// - active        => otherwise (confirmed/pending and event in the future)
+const computeTicketStatus = (booking) => {
+  if (!booking) return 'unknown';
+  if (booking.status === 'cancelled') return 'cancelled';
+  const startRaw = booking.event?.start_date;
+  if (!startRaw) return 'active';
+  const start = new Date(startRaw);
+  if (!Number.isFinite(start.getTime())) return 'active';
+  return start.getTime() < Date.now() ? 'expired' : 'active';
+};
+
+const decorateBooking = (booking) => {
+  const plain = booking.get ? booking.get({ plain: true }) : booking;
+  return { ...plain, ticket_status: computeTicketStatus(plain) };
+};
+
 export const getBookingsForUser = async (req, res, next) => {
   try {
-    const bookings = await Booking.findAll({ where: { user_id: req.user.id }, include: ['event'] });
-    res.json({ bookings });
+    const { status } = req.query; // optional filter: active | expired | cancelled
+    const bookings = await Booking.findAll({
+      where: { user_id: req.user.id },
+      include: ['event'],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const decorated = bookings.map(decorateBooking);
+
+    let filtered = decorated;
+    if (status === 'active' || status === 'expired' || status === 'cancelled') {
+      filtered = decorated.filter((b) => b.ticket_status === status);
+    }
+
+    res.json({ bookings: filtered });
   } catch (error) {
     next(error);
   }
@@ -201,7 +244,7 @@ export const getBookingById = async (req, res, next) => {
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
-    res.json({ booking });
+    res.json({ booking: decorateBooking(booking) });
   } catch (error) {
     next(error);
   }
