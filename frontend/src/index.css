@@ -28,6 +28,9 @@
 
   --color-accent: 99 102 241;         /* indigo-500 */
 
+  /* African warm accent (Terracotta / Ocre) — used sparingly on small elements */
+  --color-warm: 194 65 12;            /* #C2410C terracotta */
+
   --color-success: 16 185 129;        /* emerald-500 */
   --color-danger: 239 68 68;          /* red-500 */
   --color-warning: 245 158 11;        /* amber-500 */
@@ -58,6 +61,9 @@
   --color-primary-hover: 64 245 215;
 
   --color-accent: 129 140 248;        /* indigo-400 */
+
+  /* African warm accent — lighter ocre for contrast on dark surfaces */
+  --color-warm: 224 145 90;           /* #E0915A ocre */
 
   --color-success: 52 211 153;        /* emerald-400 */
   --color-danger: 248 113 113;        /* red-400 */

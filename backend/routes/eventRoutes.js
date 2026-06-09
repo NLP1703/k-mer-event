@@ -45,12 +45,14 @@ router.post(
   createEvent,
 );
 
+// Organizers may edit their OWN events at any status (ownership enforced by
+// authorizeEventOwner). The field whitelist in the controller still prevents
+// them from changing status/owner, so they cannot self-publish.
 router.put(
   '/:id',
   authenticate,
   authorize('admin', 'organizer'),
   authorizeEventOwner,
-  restrictOrganizerToPending,
   updateEvent,
 );
 

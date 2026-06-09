@@ -20,6 +20,7 @@ export default {
         'primary-fg': 'rgb(var(--color-primary-fg) / <alpha-value>)',
         'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
         accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        warm: 'rgb(var(--color-warm) / <alpha-value>)',
         success: 'rgb(var(--color-success) / <alpha-value>)',
         danger: 'rgb(var(--color-danger) / <alpha-value>)',
         warning: 'rgb(var(--color-warning) / <alpha-value>)',
@@ -65,10 +66,15 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.4s ease-out both',
         shimmer: 'shimmer 1.6s linear infinite',
+        marquee: 'marquee 32s linear infinite',
       },
     },
   },

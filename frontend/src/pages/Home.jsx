@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -13,10 +13,14 @@ import {
   Theater,
   Drum,
   Trophy,
+  Heart,
 } from 'lucide-react';
 import { fetchEvents } from '../services/api.js';
+import { socket } from '../lib/socket.js';
 import EventCard, { EventCardSkeleton } from '../components/EventCard.jsx';
-import { Button, Input, Card, Badge } from '../components/ui';
+import { Button, Input, Card, Badge, Select } from '../components/ui';
+import { useFavorites } from '../lib/favorites.js';
+import { cn } from '../lib/cn.js';
 
 const CATEGORIES = [
   { label: 'Concert', icon: Music },
@@ -168,17 +172,24 @@ function Categories() {
     <section id="categories" className="space-y-5">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold tracking-wider uppercase text-primary">Explorer</p>
+          <p className="text-xs font-semibold tracking-wider uppercase text-warm">Explorer</p>
           <h2 className="mt-1 text-2xl font-semibold text-fg md:text-3xl">Catégories</h2>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-        {CATEGORIES.map(({ label, icon: Icon }) => (
-          <Card key={label} interactive className="p-4 text-center">
-            <Icon className="w-5 h-5 mx-auto text-primary" />
-            <p className="mt-2 text-sm font-medium text-fg">{label}</p>
-          </Card>
-        ))}
+      <div className="overflow-hidden motion-reduce:overflow-x-auto">
+        <div className="flex w-max gap-3 animate-marquee hover:[animation-play-state:paused] motion-reduce:animate-none">
+          {[...CATEGORIES, ...CATEGORIES].map(({ label, icon: Icon }, i) => (
+            <Card
+              key={`${label}-${i}`}
+              interactive
+              aria-hidden={i >= CATEGORIES.length}
+              className="p-4 text-center shrink-0 w-36"
+            >
+              <Icon className="w-5 h-5 mx-auto text-warm" />
+              <p className="mt-2 text-sm font-medium text-fg">{label}</p>
+            </Card>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -188,21 +199,23 @@ function ValueProps() {
   return (
     <section className="space-y-5">
       <div>
-        <p className="text-xs font-semibold tracking-wider uppercase text-primary">Pourquoi K-MER</p>
+        <p className="text-xs font-semibold tracking-wider uppercase text-warm">Pourquoi K-MER</p>
         <h2 className="mt-1 text-2xl font-semibold text-fg md:text-3xl">
           Une expérience pensée pour vous
         </h2>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {VALUE_PROPS.map(({ icon: Icon, title, text }) => (
-          <Card key={title} className="p-6">
-            <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
-              <Icon className="w-5 h-5" />
-            </span>
-            <h3 className="mt-4 text-base font-semibold text-fg">{title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
-          </Card>
-        ))}
+      <div className="overflow-hidden motion-reduce:overflow-x-auto">
+        <div className="flex w-max gap-4 animate-marquee hover:[animation-play-state:paused] motion-reduce:animate-none">
+          {[...VALUE_PROPS, ...VALUE_PROPS].map(({ icon: Icon, title, text }, i) => (
+            <Card key={`${title}-${i}`} aria-hidden={i >= VALUE_PROPS.length} className="p-6 shrink-0 w-[300px] sm:w-[340px]">
+              <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
+                <Icon className="w-5 h-5" />
+              </span>
+              <h3 className="mt-4 text-base font-semibold text-fg">{title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
+            </Card>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -212,7 +225,7 @@ function Testimonials() {
   return (
     <section className="space-y-5">
       <div>
-        <p className="text-xs font-semibold tracking-wider uppercase text-primary">Ils nous font confiance</p>
+        <p className="text-xs font-semibold tracking-wider uppercase text-warm">Ils nous font confiance</p>
         <h2 className="mt-1 text-2xl font-semibold text-fg md:text-3xl">Ce qu’ils en disent</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
@@ -266,32 +279,93 @@ function CallToAction() {
   );
 }
 
+const PRICE_RANGES = [
+  { label: 'Tous les prix', value: '' },
+  { label: '≤ 5 000 FCFA', value: '5000' },
+  { label: '≤ 10 000 FCFA', value: '10000' },
+  { label: '≤ 20 000 FCFA', value: '20000' },
+];
+
 function Home() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchEvents({ search })
-      .then((data) => {
-        if (!cancelled) setEvents(data.events || []);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error(err);
-          setEvents([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+  // Advanced filters (client-side refinement of the fetched list).
+  const [cityFilter, setCityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
+  const { favorites } = useFavorites();
 
-    return () => {
-      cancelled = true;
+  // `silent` refreshes (focus/poll) update the list without showing skeletons.
+  const loadEvents = useCallback(
+    async ({ silent } = {}) => {
+      if (!silent) setLoading(true);
+      try {
+        const data = await fetchEvents({ search });
+        setEvents(data.events || []);
+      } catch (err) {
+        console.error(err);
+        if (!silent) setEvents([]);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [search],
+  );
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  // Auto-refresh so edits by organizers/admins appear without a manual reload:
+  // on tab focus/visibility and via a light poll.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadEvents({ silent: true });
     };
-  }, [search]);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const id = setInterval(refresh, 30000);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      clearInterval(id);
+    };
+  }, [loadEvents]);
+
+  // Real-time: refresh the list immediately when any event changes (WebSocket).
+  useEffect(() => {
+    const onChange = () => loadEvents({ silent: true });
+    socket.on('events:changed', onChange);
+    return () => socket.off('events:changed', onChange);
+  }, [loadEvents]);
+
+  const cities = useMemo(
+    () => [...new Set(events.map((e) => e.city).filter(Boolean))].sort(),
+    [events],
+  );
+  const categories = useMemo(
+    () => [...new Set(events.map((e) => e.category).filter(Boolean))].sort(),
+    [events],
+  );
+
+  const filtered = useMemo(() => {
+    const now = Date.now();
+    return events.filter((e) => {
+      if (cityFilter && e.city !== cityFilter) return false;
+      if (categoryFilter && e.category !== categoryFilter) return false;
+      if (maxPrice && Number(e.ticket_price) > Number(maxPrice)) return false;
+      if (favOnly && !favorites.includes(String(e.id))) return false;
+      if (upcomingOnly) {
+        const start = e.start_date ? new Date(e.start_date).getTime() : null;
+        if (!start || start < now) return false;
+      }
+      return true;
+    });
+  }, [events, cityFilter, categoryFilter, maxPrice, favOnly, upcomingOnly, favorites]);
 
   const upcoming = useMemo(() => {
     const now = Date.now();
@@ -300,6 +374,23 @@ function Home() {
       return start && start >= now;
     });
   }, [events]);
+
+  const hasActiveFilters = cityFilter || categoryFilter || maxPrice || upcomingOnly || favOnly;
+  const resetFilters = () => {
+    setCityFilter('');
+    setCategoryFilter('');
+    setMaxPrice('');
+    setUpcomingOnly(false);
+    setFavOnly(false);
+  };
+
+  const toggleChip = (active) =>
+    cn(
+      'inline-flex items-center gap-1.5 px-3 h-9 text-sm rounded-full border transition-colors',
+      active
+        ? 'border-warm text-warm bg-warm/10 font-medium'
+        : 'border-border text-muted hover:text-fg hover:border-border-strong',
+    );
 
   return (
     <div className="space-y-16 md:space-y-20">
@@ -311,15 +402,63 @@ function Home() {
       <section id="events" className="space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold tracking-wider uppercase text-primary">À l’affiche</p>
+            <p className="text-xs font-semibold tracking-wider uppercase text-warm">À l’affiche</p>
             <h2 className="mt-1 text-2xl font-semibold text-fg md:text-3xl">
               Événements populaires
             </h2>
           </div>
           <p className="hidden text-sm sm:block text-muted">
-            {events.length} événement{events.length > 1 ? 's' : ''} trouvé{events.length > 1 ? 's' : ''}
+            {filtered.length} événement{filtered.length > 1 ? 's' : ''}
           </p>
         </div>
+
+        {/* Filter bar */}
+        <Card className="p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <Input
+              icon={Search}
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un événement…"
+              className="lg:max-w-xs"
+              aria-label="Rechercher"
+            />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-center">
+              <Select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} aria-label="Ville">
+                <option value="">Toutes les villes</option>
+                {cities.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+              <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Catégorie">
+                <option value="">Toutes catégories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+              <Select value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} aria-label="Prix maximum">
+                {PRICE_RANGES.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 lg:ml-auto">
+              <button type="button" onClick={() => setUpcomingOnly((v) => !v)} className={toggleChip(upcomingOnly)}>
+                À venir
+              </button>
+              <button type="button" onClick={() => setFavOnly((v) => !v)} className={toggleChip(favOnly)}>
+                <Heart className={cn('w-3.5 h-3.5', favOnly && 'fill-warm')} />
+                Favoris
+              </button>
+              {hasActiveFilters ? (
+                <button type="button" onClick={resetFilters} className="text-sm underline text-muted hover:text-fg underline-offset-4">
+                  Réinitialiser
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </Card>
 
         {loading ? (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -327,14 +466,21 @@ function Home() {
               <EventCardSkeleton key={i} />
             ))}
           </div>
-        ) : events.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <Card className="p-10 text-center">
             <p className="text-fg">Aucun événement trouvé.</p>
-            <p className="mt-1 text-sm text-muted">Essayez un autre mot-clé.</p>
+            <p className="mt-1 text-sm text-muted">
+              {hasActiveFilters ? 'Essayez d’élargir vos filtres.' : 'Essayez un autre mot-clé.'}
+            </p>
+            {hasActiveFilters ? (
+              <Button variant="secondary" size="sm" onClick={resetFilters} className="mt-4">
+                Réinitialiser les filtres
+              </Button>
+            ) : null}
           </Card>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {events.map((event) => (
+            {filtered.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
@@ -345,7 +491,7 @@ function Home() {
         <section className="space-y-6">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold tracking-wider uppercase text-primary">Prochainement</p>
+              <p className="text-xs font-semibold tracking-wider uppercase text-warm">Prochainement</p>
               <h2 className="mt-1 text-2xl font-semibold text-fg md:text-3xl">À venir</h2>
             </div>
           </div>

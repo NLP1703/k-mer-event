@@ -12,6 +12,7 @@ import AdminEvents from './pages/AdminEvents.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import OrganizerEvents from './pages/OrganizerEvents.jsx';
 import OrganizerStatistics from './pages/OrganizerStatistics.jsx';
+import CheckIn from './pages/CheckIn.jsx';
 import Layout from './components/Layout.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import Profile from './pages/Profile.jsx';
@@ -37,6 +38,10 @@ function App() {
         <Route path="admin/events" element={user?.role === 'admin' ? <AdminEvents /> : user?.role === 'organizer' ? <OrganizerEvents /> : <Navigate to="/login" />} />
         <Route path="admin/users" element={user?.role === 'admin' ? <AdminUsers /> : <Navigate to="/login" />} />
         <Route path="organizer/statistics" element={user?.role === 'organizer' ? <OrganizerStatistics /> : <Navigate to="/login" />} />
+        <Route
+          path="checkin"
+          element={user?.role === 'admin' || user?.role === 'organizer' ? <CheckIn /> : <Navigate to="/login" />}
+        />
       </Route>
     </Routes>
   );

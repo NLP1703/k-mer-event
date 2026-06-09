@@ -11,17 +11,47 @@ export const Event = sequelize.define('Event', {
   organizer: { type: DataTypes.STRING, allowNull: false },
   banner_url: { type: DataTypes.STRING },
 
-  // Multiple photos.
-  // Some environments/DB migrations may not have `events.photo_urls` yet.
-  // Make it VIRTUAL so Sequelize won't SELECT it (prevents:
-  // "Unknown column 'event.photo_urls' in 'field list'").
+  // Multiple photos — persisted as a JSON array string in a TEXT column.
+  // Migration: backend/scripts/migrate-photo-urls.js (run `up` per environment).
+  // Reads always return an array; writes accept an array, a JSON string, or a
+  // comma-separated string.
   photo_urls: {
-    type: DataTypes.VIRTUAL(DataTypes.TEXT),
+    type: DataTypes.TEXT,
+    defaultValue: '[]',
     get() {
-      return [];
+      const raw = this.getDataValue('photo_urls');
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw.filter(Boolean);
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch {
+        return String(raw)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
     },
-    set(_val) {
-      // no-op: DB column may be missing
+    set(val) {
+      let arr = [];
+      if (Array.isArray(val)) {
+        arr = val.filter(Boolean);
+      } else if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            arr = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+          } catch {
+            arr = trimmed ? [trimmed] : [];
+          }
+        } else {
+          arr = trimmed
+            ? trimmed.split(',').map((s) => s.trim()).filter(Boolean)
+            : [];
+        }
+      }
+      this.setDataValue('photo_urls', JSON.stringify(arr));
     },
   },
 
@@ -32,6 +62,11 @@ export const Event = sequelize.define('Event', {
     allowNull: true,
     defaultValue: null,
   },
+
+  // Geolocation for the interactive map. Stored as DOUBLE NULL.
+  // Migration: backend/scripts/migrate-geo.js (also auto-ensured by init-db sync).
+  latitude: { type: DataTypes.DOUBLE, allowNull: true, defaultValue: null },
+  longitude: { type: DataTypes.DOUBLE, allowNull: true, defaultValue: null },
 
   start_date: { type: DataTypes.DATE, allowNull: false },
   end_date: { type: DataTypes.DATE },

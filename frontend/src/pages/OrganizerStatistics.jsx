@@ -65,11 +65,11 @@ function OrganizerStatistics() {
   if (user.role !== 'organizer') return <Navigate to="/" replace />;
 
   if (loading) {
-    return <p className="text-white/70">Chargement des statistiques...</p>;
+    return <p className="text-muted">Chargement des statistiques...</p>;
   }
 
   if (error) {
-    return <p className="text-rose-400">{error}</p>;
+    return <p className="text-danger">{error}</p>;
   }
 
   return (
@@ -78,9 +78,9 @@ function OrganizerStatistics() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      <div className="glass-card rounded-[36px] border border-white/10 p-10">
-        <h1 className="text-4xl font-semibold text-white">Mes statistiques</h1>
-        <p className="mt-3 text-white/70">
+      <div className="glass-card rounded-[36px] border border-border p-10">
+        <h1 className="text-4xl font-semibold text-fg">Mes statistiques</h1>
+        <p className="mt-3 text-muted">
           Vue d’ensemble des performances de vos événements.
         </p>
       </div>
@@ -91,47 +91,39 @@ function OrganizerStatistics() {
           {
             label: 'Événements créés',
             value: stats?.total_events ?? 0,
-            icon: '🎪',
           },
           {
             label: 'Billets vendus',
             value: stats?.total_tickets_sold ?? 0,
-            icon: '🎫',
           },
           {
             label: 'Revenus générés',
             value: formatCurrency(stats?.total_revenue),
-            icon: '💰',
           },
         ].map((item) => (
           <motion.div
             key={item.label}
             whileHover={{ y: -4 }}
-            className="p-6 border glass-card rounded-3xl border-white/10"
+            className="p-6 border glass-card rounded-3xl border-border"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.25em] text-neon">
-                  {item.label}
-                </p>
-                <p className="mt-4 text-4xl font-semibold text-white">
-                  {item.value}
-                </p>
-              </div>
-              <span className="text-3xl">{item.icon}</span>
-            </div>
+            <p className="text-sm uppercase tracking-[0.25em] text-primary">
+              {item.label}
+            </p>
+            <p className="mt-4 text-4xl font-semibold text-fg">
+              {item.value}
+            </p>
           </motion.div>
         ))}
       </div>
 
       {/* Per-event breakdown */}
-      <section className="glass-card rounded-[36px] border border-white/10 p-10">
-        <h2 className="text-2xl font-semibold text-white">
+      <section className="glass-card rounded-[36px] border border-border p-10">
+        <h2 className="text-2xl font-semibold text-fg">
           Détail par événement
         </h2>
 
         {!sortedEvents.length ? (
-          <p className="mt-6 text-white/70">
+          <p className="mt-6 text-muted">
             Vous n’avez pas encore créé d’événement.
           </p>
         ) : (
@@ -141,14 +133,14 @@ function OrganizerStatistics() {
               return (
                 <div
                   key={event.id}
-                  className="p-5 border rounded-3xl border-white/10 bg-black/20"
+                  className="p-5 border rounded-3xl border-border bg-surface"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-fg">
                         {event.title}
                       </h3>
-                      <p className="mt-1 text-xs text-white/60">
+                      <p className="mt-1 text-xs text-muted">
                         {event.start_date
                           ? new Date(event.start_date).toLocaleDateString()
                           : '—'}{' '}
@@ -156,40 +148,40 @@ function OrganizerStatistics() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-neon">
+                      <p className="font-semibold text-primary">
                         {formatCurrency(event.revenue)}
                       </p>
-                      <p className="text-xs text-white/60">
+                      <p className="text-xs text-muted">
                         Taux de remplissage : {fill.toFixed(1)}%
                       </p>
                     </div>
                   </div>
 
                   <div className="grid gap-3 mt-4 sm:grid-cols-3">
-                    <div className="p-3 border rounded-2xl border-white/10 bg-black/30">
-                      <p className="text-xs text-white/60">Disponibles</p>
-                      <p className="mt-1 text-base font-semibold text-white">
+                    <div className="p-3 border rounded-2xl border-border bg-bg-elevated">
+                      <p className="text-xs text-muted">Disponibles</p>
+                      <p className="mt-1 text-base font-semibold text-fg">
                         {event.ticket_quantity}
                       </p>
                     </div>
-                    <div className="p-3 border rounded-2xl border-white/10 bg-black/30">
-                      <p className="text-xs text-white/60">Vendus</p>
-                      <p className="mt-1 text-base font-semibold text-white">
+                    <div className="p-3 border rounded-2xl border-border bg-bg-elevated">
+                      <p className="text-xs text-muted">Vendus</p>
+                      <p className="mt-1 text-base font-semibold text-fg">
                         {event.sold_tickets}
                       </p>
                     </div>
-                    <div className="p-3 border rounded-2xl border-white/10 bg-black/30">
-                      <p className="text-xs text-white/60">Restants</p>
-                      <p className="mt-1 text-base font-semibold text-white">
+                    <div className="p-3 border rounded-2xl border-border bg-bg-elevated">
+                      <p className="text-xs text-muted">Restants</p>
+                      <p className="mt-1 text-base font-semibold text-fg">
                         {event.remaining_tickets}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover">
                       <div
-                        className="h-full rounded-full bg-neon"
+                        className="h-full rounded-full bg-primary"
                         style={{ width: `${fill}%` }}
                       />
                     </div>

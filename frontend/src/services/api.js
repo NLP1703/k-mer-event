@@ -112,6 +112,63 @@ export const fetchOrganizerEventStatistics = async () => {
 };
 
 
+// Upload one or several image files to the backend (device file picker).
+// Uses a bare axios call so the browser sets the multipart boundary itself
+// (the shared `api` instance forces a JSON content-type).
+export const uploadImages = async (files) => {
+  const list = Array.from(files || []);
+  if (!list.length) return { urls: [] };
+
+  const formData = new FormData();
+  list.forEach((file) => formData.append('files', file));
+
+  const token = localStorage.getItem('kmer-token');
+  const response = await axios.post(`${api.defaults.baseURL}/uploads`, formData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return response.data; // { urls: [...], url }
+};
+
+// Validate a ticket at the entrance. `code` is a booking number or the raw
+// QR JSON payload. Returns { status, message, booking } (status may also be
+// delivered via a non-2xx response, which we surface to the caller).
+export const checkInTicket = async (code) => {
+  try {
+    const response = await api.post('/bookings/checkin', { code });
+    return response.data;
+  } catch (err) {
+    if (err.response?.data) return err.response.data;
+    throw err;
+  }
+};
+
+// Delete a previously uploaded file from the server. Only acts on our own
+// /uploads/ files; ignored (and never throws) for external URLs.
+export const deleteUploadedImage = async (url) => {
+  if (!url || !String(url).includes('/uploads/')) return;
+  try {
+    await api.delete('/uploads', { data: { url } });
+  } catch {
+    // best-effort cleanup; do not block the UI on failure
+  }
+};
+
+// Waitlist — be notified when seats free up for a full event.
+export const joinWaitlist = async ({ eventId, quantity = 1 }) => {
+  const response = await api.post('/waitlist', { eventId, quantity });
+  return response.data;
+};
+
+export const fetchMyWaitlist = async () => {
+  const response = await api.get('/waitlist/me');
+  return response.data;
+};
+
+export const leaveWaitlist = async (id) => {
+  const response = await api.delete(`/waitlist/${id}`);
+  return response.data;
+};
+
 export const createEvent = async (payload) => {
   const response = await api.post('/events', payload);
   return response.data;

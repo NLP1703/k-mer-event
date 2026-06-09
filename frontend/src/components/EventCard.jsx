@@ -1,6 +1,32 @@
 import { Link } from 'react-router-dom';
-import { CalendarDays, MapPin, Ticket } from 'lucide-react';
+import { CalendarDays, MapPin, Ticket, Heart, Share2 } from 'lucide-react';
 import { Card, Badge } from './ui';
+import { eventImage, PLACEHOLDER_IMG } from '../lib/img.js';
+import { useFavorites } from '../lib/favorites.js';
+import { shareEventWhatsApp } from '../lib/share.js';
+import { cn } from '../lib/cn.js';
+
+function CardAction({ onClick, label, active, children }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      className={cn(
+        'inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-sm transition-colors',
+        'bg-black/40 text-white hover:bg-black/60',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 const formatPrice = (price) => {
   const n = Number(price);
@@ -26,18 +52,20 @@ function EventCard({ event }) {
   const total = Number(event?.ticket_quantity ?? 0);
   const isSoldOut = total > 0 && remaining <= 0;
   const isLow = !isSoldOut && total > 0 && remaining / total <= 0.15;
+  const { isFavorite, toggle } = useFavorites();
+  const fav = isFavorite(event.id);
 
   return (
     <Card as="article" interactive className="overflow-hidden group flex flex-col">
       <Link to={`/event/${event.id}`} className="block focus-visible:outline-none" aria-label={event.title}>
         <div className="relative overflow-hidden aspect-[16/10] bg-surface-hover">
           <img
-            src={event.banner_url || '/placeholder.jpg'}
+            src={eventImage(event.banner_url)}
             alt={event.title}
             loading="lazy"
             className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
-              e.currentTarget.src = '/placeholder.jpg';
+              e.currentTarget.src = PLACEHOLDER_IMG;
             }}
           />
           <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
@@ -48,6 +76,14 @@ function EventCard({ event }) {
             ) : isLow ? (
               <Badge variant="warning" size="sm">{remaining} restant{remaining > 1 ? 's' : ''}</Badge>
             ) : null}
+          </div>
+          <div className="absolute flex items-center gap-2 top-3 right-3">
+            <CardAction label="Partager sur WhatsApp" onClick={() => shareEventWhatsApp(event)}>
+              <Share2 className="w-4 h-4" />
+            </CardAction>
+            <CardAction label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} active={fav} onClick={() => toggle(event.id)}>
+              <Heart className={cn('w-4 h-4', fav && 'fill-warm text-warm')} />
+            </CardAction>
           </div>
         </div>
       </Link>

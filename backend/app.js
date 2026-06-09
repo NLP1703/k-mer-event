@@ -14,6 +14,8 @@ import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import adminBookingsRoutes from './routes/adminBookingsRoutes.js';
 import organizerRoutes from './routes/organizerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
+import waitlistRoutes from './routes/waitlistRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 
@@ -22,13 +24,30 @@ dotenv.config();
 
 const app = express();
 
-app.use(helmet());
+// Allow cross-origin loading of resources (e.g. uploaded images served from
+// /uploads consumed by the frontend on a different port/origin in dev).
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// CORS: explicitly support browser preflight requests
+// CORS: explicitly support browser preflight requests.
+// FRONTEND_URL may be a comma-separated allowlist. Any localhost/127.0.0.1
+// origin is also allowed so the Vite dev server can hop ports (5173 -> 5174…).
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const isLocalhost = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
 const corsOptions = {
-origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin(origin, callback) {
+    // Non-browser clients (curl, server-to-server) send no Origin header.
+    if (!origin || allowedOrigins.includes(origin) || isLocalhost(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
@@ -54,7 +73,19 @@ const apiLimiter = rateLimit({
 });
 
 app.use('/api/', apiLimiter);
-app.use('/uploads', express.static('uploads'));
+
+// Never let browsers/proxies serve stale API data — edits made by an organizer
+// must be visible to everyone on the next fetch (no 304 from heuristic caching).
+app.use('/api/', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+app.use(
+  '/uploads',
+  express.static('uploads', {
+    setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'),
+  }),
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
@@ -66,6 +97,8 @@ app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminBookingsRoutes);
 app.use('/api/organizer', organizerRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/api/waitlist', waitlistRoutes);
 
 
 

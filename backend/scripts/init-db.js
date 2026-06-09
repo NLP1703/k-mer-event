@@ -52,8 +52,38 @@ const syncDatabase = async () => {
       console.warn('⚠️  Could not ensure users.profile_picture column:', e?.message || e);
     }
 
+    // Ensure events.latitude / events.longitude exist (interactive map).
+    for (const column of ['latitude', 'longitude']) {
+      try {
+        const [rows] = await sequelize.query(
+          `SELECT COUNT(*) AS cnt
+           FROM information_schema.COLUMNS
+           WHERE TABLE_SCHEMA = DATABASE()
+             AND TABLE_NAME = 'events'
+             AND COLUMN_NAME = ?`,
+          { replacements: [column] },
+        );
+        const hasColumn = Number(rows?.[0]?.cnt || 0) > 0;
+        if (!hasColumn) {
+          await sequelize.query(`ALTER TABLE \`events\` ADD COLUMN \`${column}\` DOUBLE NULL;`);
+          console.log(`✅ Added missing column events.${column}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️  Could not ensure events.${column} column:`, e?.message || e);
+      }
+    }
+
     // First attempt the regular sync.
     await sequelize.sync({ alter: false, force: false, logging: false });
+
+    // Ensure the `waitlists` table exists (waitlist feature).
+    try {
+      const { Waitlist } = await import('../models/Waitlist.js');
+      await Waitlist.sync({ alter: false, force: false });
+      console.log('✅ Ensured Waitlist table exists');
+    } catch (e) {
+      console.warn('⚠️ Could not ensure Waitlist table exists:', e?.message || e);
+    }
 
     // If carts is missing, the initial sync may have been skipped/aborted.
     // Ensure the `carts` table exists by syncing only the Cart model.

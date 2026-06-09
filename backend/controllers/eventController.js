@@ -3,6 +3,18 @@ import { Op } from 'sequelize';
 import { Event } from '../models/Event.js';
 import { Booking } from '../models/Booking.js';
 import { User } from '../models/User.js';
+import { notifyWaitlistForEvent } from './waitlistController.js';
+import { emitEventsChanged } from '../config/realtime.js';
+
+// Coerce a latitude/longitude into a valid number within range, else null.
+const parseCoordinate = (raw, kind) => {
+  if (raw === '' || raw == null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  const limit = kind === 'lat' ? 90 : 180;
+  if (n < -limit || n > limit) return null;
+  return n;
+};
 
 // Accept http(s):// or protocol-relative // URLs, plus relative app paths (/uploads/...).
 // Reject javascript:, data:, anything else; trim and cap at 1000 chars to match DB column.
@@ -176,6 +188,8 @@ export const createEvent = async (req, res, next) => {
       banner_url,
       video_url,
       photo_urls,
+      latitude,
+      longitude,
       start_date,
       end_date,
       ticket_price,
@@ -198,6 +212,8 @@ export const createEvent = async (req, res, next) => {
       banner_url: sanitizeUrl(banner_url),
       video_url: sanitizeUrl(video_url),
       photo_urls: normalizePhotoUrls(photo_urls),
+      latitude: parseCoordinate(latitude, 'lat'),
+      longitude: parseCoordinate(longitude, 'lng'),
       start_date,
       end_date,
       ticket_price: Number(ticket_price),
@@ -213,6 +229,7 @@ export const createEvent = async (req, res, next) => {
 
     const event = await Event.create(eventPayload);
 
+    emitEventsChanged('created', event);
     res.status(201).json({ event });
   } catch (error) {
     next(error);
@@ -239,6 +256,8 @@ export const updateEvent = async (req, res, next) => {
       'banner_url',
       'video_url',
       'photo_urls',
+      'latitude',
+      'longitude',
       'start_date',
       'end_date',
       'ticket_price',
@@ -269,6 +288,12 @@ export const updateEvent = async (req, res, next) => {
     if ('photo_urls' in updateData) {
       updateData.photo_urls = normalizePhotoUrls(updateData.photo_urls);
     }
+    if ('latitude' in updateData) {
+      updateData.latitude = parseCoordinate(updateData.latitude, 'lat');
+    }
+    if ('longitude' in updateData) {
+      updateData.longitude = parseCoordinate(updateData.longitude, 'lng');
+    }
 
     if (updateData.ticket_price != null) {
       updateData.ticket_price = Number(updateData.ticket_price);
@@ -283,7 +308,20 @@ export const updateEvent = async (req, res, next) => {
       updateData.remaining_tickets = Math.max(requestedQuantity - soldTickets, 0);
     }
 
+    // Snapshot seat availability before the update so we can detect when
+    // capacity increases (a place freeing up) and notify the waitlist.
+    const previousRemaining = Number(event.remaining_tickets) || 0;
+
     await event.update(updateData);
+
+    // If seats became available (and the event is bookable), notify the queue.
+    const newRemaining = Number(event.remaining_tickets) || 0;
+    if (newRemaining > previousRemaining && newRemaining > 0 && event.status === 'published') {
+      // Best-effort; never block the response on email delivery.
+      notifyWaitlistForEvent(event.id, newRemaining - previousRemaining).catch(() => {});
+    }
+
+    emitEventsChanged('updated', event);
     res.json({ event });
 
   } catch (error) {
@@ -304,6 +342,7 @@ export const cancelEventByAdmin = async (req, res, next) => {
     }
 
     await event.update({ status: 'cancelled' });
+    emitEventsChanged('updated', event);
     return res.json({ event });
   } catch (error) {
     next(error);
@@ -323,6 +362,7 @@ export const approveEventByAdmin = async (req, res, next) => {
     }
 
     await event.update({ status: 'published' });
+    emitEventsChanged('updated', event);
     return res.json({ event });
   } catch (error) {
     next(error);
@@ -335,7 +375,9 @@ export const deleteEvent = async (req, res, next) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
+    const deletedId = event.id;
     await event.destroy();
+    emitEventsChanged('deleted', { id: deletedId });
     res.status(204).end();
   } catch (error) {
     next(error);

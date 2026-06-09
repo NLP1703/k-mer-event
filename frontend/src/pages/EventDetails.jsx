@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -12,11 +12,21 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  Heart,
+  Share2,
+  BellPlus,
 } from 'lucide-react';
-import { fetchEvent } from '../services/api.js';
+import { fetchEvent, joinWaitlist } from '../services/api.js';
+import { socket } from '../lib/socket.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { Button, Card, Badge, Skeleton } from '../components/ui';
+import { eventImage, PLACEHOLDER_IMG } from '../lib/img.js';
+import { useFavorites } from '../lib/favorites.js';
+import { shareEventWhatsApp } from '../lib/share.js';
+import { cn } from '../lib/cn.js';
+import EventLocationMap from '../components/EventLocationMap.jsx';
+import { Navigation } from 'lucide-react';
 
 const normalizePhotoUrls = (value) => {
   if (!value) return [];
@@ -81,6 +91,7 @@ function EventDetails() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const { isFavorite, toggle } = useFavorites();
 
   const [event, setEvent] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -91,40 +102,79 @@ function EventDetails() {
   const [loadError, setLoadError] = useState('');
   const [videoFailed, setVideoFailed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [waitlistState, setWaitlistState] = useState('idle'); // idle | joining | joined
+
+  // `silent` refreshes (focus/poll) update the event in place, without resetting
+  // the loading state, gallery selection, or the user's quantity choice.
+  const loadEvent = useCallback(
+    async ({ silent } = {}) => {
+      if (!silent) {
+        setLoading(true);
+        setLoadError('');
+        setVideoFailed(false);
+        setActiveImage(0);
+      }
+      try {
+        const data = await fetchEvent(id);
+        setEvent(data.event);
+      } catch (err) {
+        console.error(err);
+        if (!silent) setLoadError(err?.response?.data?.message || 'Impossible de charger l’événement');
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setLoadError('');
-    setVideoFailed(false);
-    setActiveImage(0);
-    fetchEvent(id)
-      .then((data) => {
-        if (!cancelled) setEvent(data.event);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error(err);
-          setLoadError(err?.response?.data?.message || 'Impossible de charger l’événement');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
+    loadEvent();
+  }, [loadEvent]);
+
+  // Auto-refresh so an organizer's edits appear for other users without a manual
+  // reload: on tab focus/visibility and via a light poll.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadEvent({ silent: true });
     };
-  }, [id]);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const intervalId = setInterval(refresh, 30000);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      clearInterval(intervalId);
+    };
+  }, [loadEvent]);
+
+  // Real-time: when THIS event changes, refresh it immediately (WebSocket).
+  useEffect(() => {
+    const onChange = (payload) => {
+      if (!payload?.eventId || String(payload.eventId) === String(id)) {
+        if (payload?.type === 'deleted') {
+          setLoadError('Cet événement a été supprimé.');
+        } else {
+          loadEvent({ silent: true });
+        }
+      }
+    };
+    socket.on('events:changed', onChange);
+    return () => socket.off('events:changed', onChange);
+  }, [loadEvent, id]);
 
   const photoUrls = useMemo(() => normalizePhotoUrls(event?.photo_urls), [event]);
   const allImages = useMemo(() => {
-    const base = [event?.banner_url, ...photoUrls].filter(Boolean);
-    return base.length ? base : ['/placeholder.jpg'];
+    const base = [event?.banner_url, ...photoUrls].filter(Boolean).map((u) => eventImage(u));
+    return base.length ? base : [PLACEHOLDER_IMG];
   }, [event, photoUrls]);
 
   const showVideo = !!event && isPlayableVideoUrl(event.video_url) && !videoFailed;
   const remaining = Number(event?.remaining_tickets ?? 0);
   const isSoldOut = remaining <= 0;
+  const eventLat = Number(event?.latitude);
+  const eventLng = Number(event?.longitude);
+  const hasCoords =
+    Number.isFinite(eventLat) && Number.isFinite(eventLng) && !(eventLat === 0 && eventLng === 0);
 
   const totalPrice = Number(event?.ticket_price ?? 0) * quantity;
 
@@ -144,6 +194,25 @@ function EventDetails() {
       setMessage(error.message || 'Impossible d’ajouter au panier');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleJoinWaitlist = async () => {
+    setMessage('');
+    if (!user) {
+      navigate('/login', { state: { returnTo: `/event/${id}` } });
+      return;
+    }
+    try {
+      setWaitlistState('joining');
+      await joinWaitlist({ eventId: event.id, quantity });
+      setWaitlistState('joined');
+      setMessageType('success');
+      setMessage('Vous êtes sur la liste d’attente. Nous vous préviendrons par e-mail dès qu’une place se libère.');
+    } catch (error) {
+      setWaitlistState('idle');
+      setMessageType('error');
+      setMessage(error?.response?.data?.message || 'Impossible de rejoindre la liste d’attente');
     }
   };
 
@@ -170,7 +239,7 @@ function EventDetails() {
     );
   }
 
-  const mainImage = allImages[activeImage] || '/placeholder.jpg';
+  const mainImage = allImages[activeImage] || PLACEHOLDER_IMG;
 
   return (
     <div className="space-y-8">
@@ -206,7 +275,7 @@ function EventDetails() {
               alt={event.title}
               className="h-[420px] w-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = '/placeholder.jpg';
+                e.currentTarget.src = PLACEHOLDER_IMG;
               }}
             />
           )}
@@ -292,6 +361,36 @@ function EventDetails() {
               {event.description}
             </p>
           </section>
+
+          {hasCoords ? (
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-fg">Localisation</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {event.venue} · {event.city}
+                  </p>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-4 h-10 text-sm font-medium transition-colors border rounded-full border-border text-fg hover:bg-surface-hover"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Itinéraire GPS
+                </a>
+              </div>
+              <div className="mt-3">
+                <EventLocationMap
+                  latitude={event.latitude}
+                  longitude={event.longitude}
+                  title={event.title}
+                />
+              </div>
+              <p className="mt-2 text-xs text-subtle">Vue satellite · OpenStreetMap / Esri</p>
+            </section>
+          ) : null}
         </div>
 
         {/* Right column: sticky booking card */}
@@ -344,27 +443,72 @@ function EventDetails() {
                 <span className="text-xl font-semibold text-fg">{formatPrice(totalPrice)}</span>
               </div>
 
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleAddToCart}
-                disabled={isSoldOut || submitting}
-                className="w-full mt-6"
-              >
-                {isSoldOut ? (
-                  <>
-                    <Ticket className="w-4 h-4" />
-                    Complet
-                  </>
-                ) : submitting ? (
-                  'Ajout...'
-                ) : (
-                  <>
-                    <ShoppingBag className="w-4 h-4" />
-                    Ajouter au panier
-                  </>
-                )}
-              </Button>
+              {isSoldOut ? (
+                <Button
+                  variant={waitlistState === 'joined' ? 'secondary' : 'primary'}
+                  size="lg"
+                  onClick={handleJoinWaitlist}
+                  disabled={waitlistState === 'joining' || waitlistState === 'joined'}
+                  className="w-full mt-6"
+                >
+                  {waitlistState === 'joined' ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Inscrit sur la liste d’attente
+                    </>
+                  ) : waitlistState === 'joining' ? (
+                    'Inscription...'
+                  ) : (
+                    <>
+                      <BellPlus className="w-4 h-4" />
+                      Rejoindre la liste d’attente
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleAddToCart}
+                  disabled={submitting}
+                  className="w-full mt-6"
+                >
+                  {submitting ? (
+                    'Ajout...'
+                  ) : (
+                    <>
+                      <ShoppingBag className="w-4 h-4" />
+                      Ajouter au panier
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {isSoldOut ? (
+                <p className="mt-3 text-xs text-center text-subtle">
+                  Événement complet — soyez prévenu(e) par e-mail dès qu’une place se libère.
+                </p>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => toggle(event.id)}
+                  aria-pressed={isFavorite(event.id)}
+                  className="inline-flex items-center justify-center gap-2 px-4 h-10 text-sm font-medium transition-colors border rounded-full border-border text-fg hover:bg-surface-hover"
+                >
+                  <Heart className={cn('w-4 h-4', isFavorite(event.id) && 'fill-warm text-warm')} />
+                  {isFavorite(event.id) ? 'Favori' : 'Favori'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => shareEventWhatsApp(event)}
+                  className="inline-flex items-center justify-center gap-2 px-4 h-10 text-sm font-medium transition-colors border rounded-full border-border text-fg hover:bg-surface-hover"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Partager
+                </button>
+              </div>
 
               {message ? (
                 <p

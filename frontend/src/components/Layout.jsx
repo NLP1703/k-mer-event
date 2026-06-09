@@ -13,6 +13,7 @@ import {
   LogIn,
   LogOut,
   BarChart3,
+  ScanLine,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -86,6 +87,7 @@ function Layout() {
       {isAdmin ? <NavItem to="/admin/events" icon={CalendarCheck} onClick={onClick}>Événements</NavItem> : null}
       {isOrganizer ? <NavItem to="/admin/events" icon={IdCard} onClick={onClick}>Mes événements</NavItem> : null}
       {isOrganizer ? <NavItem to="/organizer/statistics" icon={BarChart3} onClick={onClick}>Statistiques</NavItem> : null}
+      {(isAdmin || isOrganizer) ? <NavItem to="/checkin" icon={ScanLine} onClick={onClick}>Check-in</NavItem> : null}
       {isAdmin ? <NavItem to="/admin/users" icon={Users} onClick={onClick}>Utilisateurs</NavItem> : null}
     </>
   );

@@ -64,3 +64,50 @@ export const sendBookingConfirmation = async (booking, event, user) => {
     console.error('❌ Failed to send confirmation email:', error);
   }
 };
+
+// Notify a waitlisted user that seats have become available for an event.
+export const sendWaitlistAvailability = async (entry, event) => {
+  const to = entry.email || entry.user?.email;
+  if (!to) return;
+
+  const eventUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/event/${event.id}`;
+
+  const mailOptions = {
+    from: process.env.SMTP_USER,
+    to,
+    subject: `Une place s'est libérée — ${event.title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #070b18; color: white; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #00ffd5; margin: 0;">K-MER Events</h1>
+          <p style="color: #ffffff; margin: 10px 0;">Bonne nouvelle pour votre liste d'attente</p>
+        </div>
+
+        <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+          <h2 style="color: #ffffff; margin-top: 0;">${event.title}</h2>
+          <p style="color: #ffffff; margin: 5px 0;">Des places viennent de se libérer pour cet événement&nbsp;!</p>
+          <p style="color: #ffffff; margin: 5px 0;"><strong>Lieu :</strong> ${event.venue || '—'}</p>
+          <p style="color: #ffffff; margin: 5px 0;"><strong>Date :</strong> ${event.start_date ? new Date(event.start_date).toLocaleDateString('fr-FR') : '—'}</p>
+          <p style="color: #ffffff; margin: 5px 0;">Réservez vite, les places partent rapidement.</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${eventUrl}" style="background: #00ffd5; color: #070b18; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+            Réserver maintenant
+          </a>
+        </div>
+
+        <div style="text-align: center; color: #ffffff; font-size: 12px;">
+          <p>Vous recevez cet e-mail car vous étiez inscrit(e) sur la liste d'attente.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Waitlist availability email sent to ${to}`);
+  } catch (error) {
+    console.error('❌ Failed to send waitlist email:', error);
+  }
+};

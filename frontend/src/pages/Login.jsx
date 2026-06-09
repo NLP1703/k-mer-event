@@ -23,38 +23,38 @@ function Login() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-auto w-full max-w-md rounded-[36px] border border-white/10 bg-black/50 p-6 sm:p-10 shadow-glow"
+      className="mx-auto w-full max-w-md rounded-[36px] border border-border bg-surface p-6 sm:p-10 shadow-elevated"
     >
-      <h1 className="text-3xl font-semibold text-white">Welcome back</h1>
+      <h1 className="text-3xl font-semibold text-fg">Welcome back</h1>
 
-      <p className="mt-3 text-white/70">Login to continue browsing events and manage your bookings.</p>
-      <div className="mt-6 text-sm text-white/70">
+      <p className="mt-3 text-muted">Login to continue browsing events and manage your bookings.</p>
+      <div className="mt-6 text-sm text-muted">
         Don’t have an account?{' '}
-        <a href="/register" className="text-neon hover:text-white underline">Sign up</a>
+        <a href="/register" className="text-primary hover:text-fg underline">Sign up</a>
       </div>
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-        <label className="block text-sm text-white/60">
+        <label className="block text-sm text-muted">
           Email
           <input
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="mt-3 w-full rounded-3xl border border-border bg-bg-elevated px-5 py-4 text-fg"
             required
           />
         </label>
-        <label className="block text-sm text-white/60">
+        <label className="block text-sm text-muted">
           Password
           <input
             type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="mt-3 w-full rounded-3xl border border-white/10 bg-black/30 px-5 py-4 text-white"
+            className="mt-3 w-full rounded-3xl border border-border bg-bg-elevated px-5 py-4 text-fg"
             required
           />
         </label>
-        {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        <button type="submit" className="w-full rounded-full bg-neon px-6 py-4 text-base font-semibold text-night transition hover:bg-white">
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        <button type="submit" className="w-full rounded-full bg-primary px-6 py-4 text-base font-semibold text-primary-fg transition hover:bg-primary-hover">
           Sign in
         </button>
       </form>

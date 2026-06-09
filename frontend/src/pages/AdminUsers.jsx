@@ -144,7 +144,7 @@ function AdminUsers() {
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-white/10 p-8 text-white/70">Loading users...</div>
+        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">Loading users...</div>
       </motion.div>
     );
   }
@@ -152,26 +152,26 @@ function AdminUsers() {
   if (error) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-white/10 p-8 text-rose-400">{error}</div>
+        <div className="glass-card rounded-[36px] border border-border p-8 text-danger">{error}</div>
       </motion.div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="glass-card rounded-[36px] border border-white/10 p-8">
-        <h1 className="text-4xl font-semibold text-white">Admin - Utilisateurs</h1>
-        <p className="mt-3 text-white/70">Voir, créer, modifier et supprimer des utilisateurs.</p>
+      <div className="glass-card rounded-[36px] border border-border p-8">
+        <h1 className="text-4xl font-semibold text-fg">Admin - Utilisateurs</h1>
+        <p className="mt-3 text-muted">Voir, créer, modifier et supprimer des utilisateurs.</p>
       </div>
 
-      <section className="glass-card rounded-[36px] border border-white/10 p-8">
-        <h2 className="text-2xl font-semibold text-white">Créer un utilisateur</h2>
+      <section className="glass-card rounded-[36px] border border-border p-8">
+        <h2 className="text-2xl font-semibold text-fg">Créer un utilisateur</h2>
 
         <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-2">
           <label className="block">
-            <span className="text-sm text-white/70">Nom</span>
+            <span className="text-sm text-muted">Nom</span>
             <input
-              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              className="w-full px-4 py-3 mt-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
               value={createForm.name}
               onChange={(e) => setCreateForm((s) => ({ ...s, name: e.target.value }))}
               required
@@ -179,10 +179,10 @@ function AdminUsers() {
           </label>
 
           <label className="block">
-            <span className="text-sm text-white/70">Email</span>
+            <span className="text-sm text-muted">Email</span>
             <input
               type="email"
-              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              className="w-full px-4 py-3 mt-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
               value={createForm.email}
               onChange={(e) => setCreateForm((s) => ({ ...s, email: e.target.value }))}
               required
@@ -190,18 +190,18 @@ function AdminUsers() {
           </label>
 
           <label className="block">
-            <span className="text-sm text-white/70">Téléphone</span>
+            <span className="text-sm text-muted">Téléphone</span>
             <input
-              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              className="w-full px-4 py-3 mt-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
               value={createForm.telephone}
               onChange={(e) => setCreateForm((s) => ({ ...s, telephone: e.target.value }))}
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-white/70">Rôle</span>
+            <span className="text-sm text-muted">Rôle</span>
             <select
-              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              className="w-full px-4 py-3 mt-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
               value={createForm.role}
               onChange={(e) => setCreateForm((s) => ({ ...s, role: e.target.value }))}
             >
@@ -211,9 +211,9 @@ function AdminUsers() {
           </label>
 
           <label className="block md:col-span-2">
-            <span className="text-sm text-white/70">Avatar URL</span>
+            <span className="text-sm text-muted">Avatar URL</span>
             <input
-              className="w-full px-4 py-3 mt-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+              className="w-full px-4 py-3 mt-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
               value={createForm.avatar_url}
               onChange={(e) => setCreateForm((s) => ({ ...s, avatar_url: e.target.value }))}
             />
@@ -223,7 +223,7 @@ function AdminUsers() {
             <button
               type="submit"
               disabled={creating}
-              className="px-5 py-3 text-white border rounded-full border-white/10 bg-white/5 hover:border-neon disabled:opacity-60"
+              className="px-5 py-3 text-fg border rounded-full border-border bg-surface-hover hover:border-primary disabled:opacity-60"
             >
               {creating ? 'En cours...' : 'Créer'}
             </button>
@@ -231,7 +231,7 @@ function AdminUsers() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="px-5 py-3 text-white border rounded-full border-white/10 bg-white/5 hover:border-neon"
+                className="px-5 py-3 text-fg border rounded-full border-border bg-surface-hover hover:border-primary"
               >
                 Annuler édition
               </button>
@@ -240,16 +240,16 @@ function AdminUsers() {
         </form>
       </section>
 
-      <section className="glass-card rounded-[36px] border border-white/10 p-8">
-        <h2 className="text-2xl font-semibold text-white">Liste des utilisateurs</h2>
+      <section className="glass-card rounded-[36px] border border-border p-8">
+        <h2 className="text-2xl font-semibold text-fg">Liste des utilisateurs</h2>
 
         {users.length === 0 ? (
-          <p className="mt-4 text-white/70">Aucun utilisateur trouvé.</p>
+          <p className="mt-4 text-muted">Aucun utilisateur trouvé.</p>
         ) : (
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full text-left">
               <thead>
-                <tr className="text-sm text-white/60">
+                <tr className="text-sm text-muted">
                   <th className="py-3 pr-6">Nom</th>
                   <th className="py-3 pr-6">Email</th>
                   <th className="py-3 pr-6">Rôle</th>
@@ -261,23 +261,23 @@ function AdminUsers() {
                 {users.map((u) => {
                   const isEditing = editingId === u.id;
                   return (
-                    <tr key={u.id} className="text-sm border-t border-white/10 text-white/80">
+                    <tr key={u.id} className="text-sm border-t border-border text-muted">
                       <td className="py-3 pr-6">
                         {isEditing ? (
                           <input
-                            className="w-48 px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            className="w-48 px-3 py-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
                             value={editForm.name}
                             onChange={(e) => setEditForm((s) => ({ ...s, name: e.target.value }))}
                           />
                         ) : (
-                          <div className="font-semibold text-white">{u.name}</div>
+                          <div className="font-semibold text-fg">{u.name}</div>
                         )}
                       </td>
                       <td className="py-3 pr-6">
                         {isEditing ? (
                           <input
                             type="email"
-                            className="w-56 px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            className="w-56 px-3 py-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
                             value={editForm.email}
                             onChange={(e) => setEditForm((s) => ({ ...s, email: e.target.value }))}
                           />
@@ -288,7 +288,7 @@ function AdminUsers() {
                       <td className="py-3 pr-6">
                         {isEditing ? (
                           <select
-                            className="px-3 py-2 text-white border outline-none rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            className="px-3 py-2 text-fg border outline-none rounded-xl border-border bg-bg-elevated focus:border-primary"
                             value={editForm.role}
                             onChange={(e) => setEditForm((s) => ({ ...s, role: e.target.value }))}
                           >
@@ -302,7 +302,7 @@ function AdminUsers() {
                       <td className="py-3 pr-6">
                         {isEditing ? (
                           <input
-                            className="px-3 py-2 text-white border outline-none w-44 rounded-xl border-white/10 bg-black/30 focus:border-neon"
+                            className="px-3 py-2 text-fg border outline-none w-44 rounded-xl border-border bg-bg-elevated focus:border-primary"
                             value={editForm.telephone}
                             onChange={(e) => setEditForm((s) => ({ ...s, telephone: e.target.value }))}
                           />
@@ -318,14 +318,14 @@ function AdminUsers() {
                                 type="button"
                                 disabled={creating}
                                 onClick={() => handleUpdate(u.id)}
-                                className="px-3 py-2 border rounded-full border-neon text-neon hover:bg-neon/10 disabled:opacity-60"
+                                className="px-3 py-2 border rounded-full border-primary text-primary hover:bg-primary/10 disabled:opacity-60"
                               >
                                 Sauver
                               </button>
                               <button
                                 type="button"
                                 onClick={cancelEdit}
-                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-white/30"
+                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-border-strong"
                               >
                                 Annuler
                               </button>
@@ -335,21 +335,21 @@ function AdminUsers() {
                               <button
                                 type="button"
                                 onClick={() => startEdit(u)}
-                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-neon"
+                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-primary"
                               >
                                 Modifier
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleViewBookings(u.id)}
-                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-neon"
+                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-primary"
                               >
                                 Voir bookings
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDelete(u.id)}
-                                className="px-3 py-2 text-white border rounded-full border-white/10 hover:border-rose-400"
+                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-rose-400"
                               >
                                 Supprimer
                               </button>

@@ -11,7 +11,15 @@
     "migrate:video-url": "node scripts/migrate-video-url.js up",
     "migrate:video-url:down": "node scripts/migrate-video-url.js down",
     "migrate:profile-picture": "node scripts/migrate-profile-picture.js up",
-    "migrate:profile-picture:down": "node scripts/migrate-profile-picture.js down"
+    "migrate:profile-picture:down": "node scripts/migrate-profile-picture.js down",
+    "migrate:checkin": "node scripts/migrate-checkin.js up",
+    "migrate:checkin:down": "node scripts/migrate-checkin.js down",
+    "migrate:photo-urls": "node scripts/migrate-photo-urls.js up",
+    "migrate:photo-urls:down": "node scripts/migrate-photo-urls.js down",
+    "migrate:waitlist": "node scripts/migrate-waitlist.js up",
+    "migrate:waitlist:down": "node scripts/migrate-waitlist.js down",
+    "migrate:geo": "node scripts/migrate-geo.js up",
+    "migrate:geo:down": "node scripts/migrate-geo.js down"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -22,14 +30,15 @@
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.0",
     "nodemailer": "^6.9.4",
+    "pdfkit": "^0.13.0",
     "qrcode": "^1.5.1",
     "sequelize": "^6.33.0",
-    "uuid": "^9.0.0",
-    "morgan": "^1.10.0",
-    "pdfkit": "^0.13.0"
+    "socket.io": "^4.8.3",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

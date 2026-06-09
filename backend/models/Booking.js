@@ -15,6 +15,8 @@ export const Booking = sequelize.define('Booking', {
   customer_name: { type: DataTypes.STRING },
   customer_email: { type: DataTypes.STRING },
   customer_phone: { type: DataTypes.STRING },
+  // Set when the ticket is validated at the entrance (QR check-in).
+  checked_in_at: { type: DataTypes.DATE, allowNull: true },
 });
 
 Booking.belongsTo(User, { foreignKey: 'user_id', as: 'user' });

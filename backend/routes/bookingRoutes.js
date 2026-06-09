@@ -1,9 +1,20 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { authenticate } from '../middlewares/auth.js';
-import { createBooking, getBookingsForUser, getBookingById, checkoutCart, downloadTicketPdf } from '../controllers/bookingController.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
+import {
+  createBooking,
+  getBookingsForUser,
+  getBookingById,
+  checkoutCart,
+  downloadTicketPdf,
+  checkInBooking,
+} from '../controllers/bookingController.js';
 
 const router = express.Router();
+
+// Ticket validation at the entrance (admin or organizer). Defined before
+// the '/:id' routes so "checkin" is not captured as an id.
+router.post('/checkin', authenticate, authorize('admin', 'organizer'), checkInBooking);
 
 router.post(
   '/',

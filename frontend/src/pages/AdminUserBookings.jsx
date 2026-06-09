@@ -44,7 +44,7 @@ function AdminUserBookings({ userId, onBack }) {
   if (!canRender) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-white/10 p-8 text-white/70">No user selected.</div>
+        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">No user selected.</div>
       </motion.div>
     );
   }
@@ -52,7 +52,7 @@ function AdminUserBookings({ userId, onBack }) {
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-white/10 p-8 text-white/70">Loading bookings...</div>
+        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">Loading bookings...</div>
       </motion.div>
     );
   }
@@ -60,18 +60,18 @@ function AdminUserBookings({ userId, onBack }) {
   if (error) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-white/10 p-8 text-rose-400">{error}</div>
+        <div className="glass-card rounded-[36px] border border-border p-8 text-danger">{error}</div>
       </motion.div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="glass-card rounded-[36px] border border-white/10 p-8">
+      <div className="glass-card rounded-[36px] border border-border p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-semibold text-white">Bookings utilisateur</h1>
-            <p className="mt-2 text-white/70">
+            <h1 className="text-4xl font-semibold text-fg">Bookings utilisateur</h1>
+            <p className="mt-2 text-muted">
               {user?.name} · {user?.email}
             </p>
           </div>
@@ -79,7 +79,7 @@ function AdminUserBookings({ userId, onBack }) {
             <button
               type="button"
               onClick={onBack}
-              className="px-5 py-3 text-white border rounded-full border-white/10 hover:border-white/30"
+              className="px-5 py-3 text-fg border rounded-full border-border hover:border-border-strong"
             >
               Retour
             </button>
@@ -87,16 +87,16 @@ function AdminUserBookings({ userId, onBack }) {
         </div>
       </div>
 
-      <section className="glass-card rounded-[36px] border border-white/10 p-8">
-        <h2 className="text-2xl font-semibold text-white">Liste des bookings</h2>
+      <section className="glass-card rounded-[36px] border border-border p-8">
+        <h2 className="text-2xl font-semibold text-fg">Liste des bookings</h2>
 
         {bookings.length === 0 ? (
-          <p className="mt-4 text-white/70">Aucun booking trouvé pour cet utilisateur.</p>
+          <p className="mt-4 text-muted">Aucun booking trouvé pour cet utilisateur.</p>
         ) : (
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full text-left">
               <thead>
-                <tr className="text-sm text-white/60">
+                <tr className="text-sm text-muted">
                   <th className="py-3 pr-6">Événement</th>
                   <th className="py-3 pr-6">Date</th>
                   <th className="py-3 pr-6">Quantité</th>
@@ -107,10 +107,10 @@ function AdminUserBookings({ userId, onBack }) {
               </thead>
               <tbody>
                 {bookings.map((b) => (
-                  <tr key={b.id} className="text-sm border-t border-white/10 text-white/80">
+                  <tr key={b.id} className="text-sm border-t border-border text-muted">
                     <td className="py-3 pr-6">
-                      <div className="font-semibold text-white">{b.event?.title}</div>
-                      <div className="text-xs text-white/60">{b.event?.venue}</div>
+                      <div className="font-semibold text-fg">{b.event?.title}</div>
+                      <div className="text-xs text-muted">{b.event?.venue}</div>
                     </td>
                     <td className="py-3 pr-6">
                       {b.event?.start_date ? new Date(b.event.start_date).toLocaleDateString() : '-'}
@@ -122,7 +122,7 @@ function AdminUserBookings({ userId, onBack }) {
                       <button
                         type="button"
                         onClick={() => handleDownload(b)}
-                        className="px-5 py-2 text-sm font-semibold transition rounded-full bg-neon text-night hover:bg-white"
+                        className="px-5 py-2 text-sm font-semibold transition rounded-full bg-primary text-primary-fg hover:bg-primary-hover"
                       >
                         Ticket
                       </button>

@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { Booking } from '../models/Booking.js';
 import { Event } from '../models/Event.js';
+import { User } from '../models/User.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
 import { Op, literal } from 'sequelize';
@@ -245,6 +246,87 @@ export const getBookingById = async (req, res, next) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
     res.json({ booking: decorateBooking(booking) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Extract a booking number from a scanned QR (JSON payload) or raw text input.
+const parseTicketCode = (raw) => {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (s.startsWith('{')) {
+    try {
+      const obj = JSON.parse(s);
+      return String(obj.booking_number || '').trim();
+    } catch {
+      // not JSON; fall through and treat as a plain code
+    }
+  }
+  return s;
+};
+
+const serializeForCheckin = (b) => ({
+  id: b.id,
+  booking_number: b.booking_number,
+  quantity: b.quantity,
+  status: b.status,
+  checked_in_at: b.checked_in_at,
+  customer_name: b.customer_name,
+  event: b.event ? { id: b.event.id, title: b.event.title, start_date: b.event.start_date } : null,
+  user: b.user ? { name: b.user.name, email: b.user.email } : null,
+});
+
+// POST /api/bookings/checkin — validate a ticket at the entrance.
+// Body: { code } where code is a booking_number or the raw QR JSON payload.
+export const checkInBooking = async (req, res, next) => {
+  try {
+    const code = parseTicketCode(req.body?.code);
+    if (!code) return res.status(400).json({ status: 'invalid', message: 'Code de billet manquant' });
+
+    const booking = await Booking.findOne({
+      where: { booking_number: code },
+      include: [
+        { model: Event, as: 'event' },
+        { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+      ],
+    });
+
+    if (!booking) {
+      return res.status(404).json({ status: 'invalid', message: 'Billet introuvable' });
+    }
+
+    // Organizers can only validate tickets for their own events.
+    if (req.user?.role === 'organizer') {
+      const owner = (req.user?.name ?? '').toString().trim();
+      const evOrganizer = (booking.event?.organizer ?? '').toString().trim();
+      if (!owner || owner !== evOrganizer) {
+        return res
+          .status(403)
+          .json({ status: 'forbidden', message: 'Ce billet ne concerne pas vos événements' });
+      }
+    }
+
+    if (booking.status === 'cancelled') {
+      return res
+        .status(409)
+        .json({ status: 'cancelled', message: 'Billet annulé', booking: serializeForCheckin(booking) });
+    }
+
+    if (booking.checked_in_at) {
+      return res.status(409).json({
+        status: 'already',
+        message: 'Billet déjà validé',
+        booking: serializeForCheckin(booking),
+      });
+    }
+
+    booking.checked_in_at = new Date();
+    await booking.save();
+
+    return res
+      .status(200)
+      .json({ status: 'ok', message: 'Billet validé', booking: serializeForCheckin(booking) });
   } catch (error) {
     next(error);
   }
