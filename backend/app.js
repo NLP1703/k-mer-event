@@ -16,6 +16,7 @@ import organizerRoutes from './routes/organizerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import waitlistRoutes from './routes/waitlistRoutes.js';
+import geocodeRoutes from './routes/geocodeRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 
@@ -99,6 +100,7 @@ app.use('/api/organizer', organizerRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/waitlist', waitlistRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 
 

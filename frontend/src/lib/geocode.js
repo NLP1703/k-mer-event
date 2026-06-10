@@ -1,17 +1,29 @@
-// Forward geocoding via OpenStreetMap Nominatim (free, no API key).
-// Results are restricted to Cameroon (countrycodes=cm).
-// Returns { latitude, longitude, label } for the best match, or null.
-// Note: Nominatim's usage policy asks for low request volume — we only call
-// this on a debounced change of the venue/city fields.
-const search = async (query) => {
-  const q = (query || '').trim();
-  if (!q) return null;
-  const params = new URLSearchParams({
-    format: 'json',
-    limit: '1',
-    countrycodes: 'cm', // restrict to Cameroon
-    q,
-  });
+// Forward geocoding (Cameroon-restricted), returns { latitude, longitude, label } or null.
+//
+// In production the site is often served over plain HTTP (no domain/HTTPS) and
+// calling Nominatim directly from the browser can be unreliable (CORS / usage
+// policy). So we geocode through our OWN backend proxy first (same origin via
+// /api/geocode — always works), and only fall back to calling Nominatim
+// directly from the browser if the proxy is unreachable.
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
+// 1) Backend proxy (reliable: same origin, works over HTTP, proper User-Agent).
+const searchViaBackend = async (q) => {
+  try {
+    const res = await fetch(`${apiBase}/geocode?q=${encodeURIComponent(q)}&country=cm`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.result ? data.result : null;
+  } catch {
+    return null;
+  }
+};
+
+// 2) Fallback: call Nominatim directly from the browser.
+const searchDirect = async (q) => {
+  const params = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'cm', q });
   const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -28,6 +40,12 @@ const search = async (query) => {
   } catch {
     return null;
   }
+};
+
+const search = async (query) => {
+  const q = (query || '').trim();
+  if (!q) return null;
+  return (await searchViaBackend(q)) || (await searchDirect(q));
 };
 
 // Try the most specific query first ("venue, city"), then fall back to the

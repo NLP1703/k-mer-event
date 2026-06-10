@@ -45,6 +45,14 @@ function LocationPicker({ latitude, longitude, venue, city, onChange, inputClass
 
   const useMyLocation = () => {
     setError('');
+    // Browser geolocation requires a secure context (HTTPS or localhost).
+    // On a plain-HTTP production site it is blocked by the browser.
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setError(
+        'Le bouton « Ma position » nécessite HTTPS. Utilisez « Localiser depuis le lieu » (saisissez le lieu/la ville) ou activez le HTTPS sur le serveur.',
+      );
+      return;
+    }
     if (!navigator.geolocation) {
       setError('La géolocalisation n’est pas supportée par votre navigateur.');
       return;
