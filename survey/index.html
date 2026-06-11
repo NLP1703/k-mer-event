@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>K-MER EVENT — User Survey</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --theme:#673ab7;          /* Google Forms default purple theme */
+    --theme-dark:#5b2ca8;
+    --bg:#f0ebf8;             /* light purple page background */
+    --card:#fff;
+    --line:#dadce0;
+    --ink:#202124;
+    --ink-2:#5f6368;
+    --req:#d93025;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    font-family:'Roboto',Arial,Helvetica,sans-serif;
+    color:var(--ink);
+    line-height:1.4;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:14px 12px 40px}
+
+  /* ---- Cards ---- */
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px;
+    margin-bottom:12px;
+  }
+  .header{
+    border-top:10px solid var(--theme);
+    padding-top:22px;
+  }
+  .header h1{
+    font-size:32px;font-weight:400;line-height:1.25;margin:0 0 8px;color:var(--ink);
+  }
+  .header .desc{font-size:14px;color:var(--ink);margin:0 0 14px;white-space:pre-line}
+  .header .req-note{font-size:13px;color:var(--req)}
+  .header hr{border:none;border-top:1px solid var(--line);margin:14px 0 0}
+
+  /* ---- Question ---- */
+  .q .title{font-size:16px;font-weight:400;line-height:24px;color:var(--ink);margin:0 0 4px}
+  .q .title .star{color:var(--req);margin-left:3px}
+  .q .help{font-size:13px;color:var(--ink-2);margin:0 0 14px}
+  .q .body{margin-top:14px}
+
+  /* ---- Radio / checkbox options (Material style) ---- */
+  .opt{display:flex;align-items:center;gap:14px;min-height:36px;padding:5px 0;cursor:pointer}
+  .opt input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+  .ctrl{position:relative;flex:none;width:20px;height:20px;border:2px solid var(--ink-2);
+    border-radius:50%;background:#fff;transition:border-color .15s,background .15s}
+  .opt .ctrl::before{content:"";position:absolute;inset:-11px;border-radius:50%;
+    background:transparent;transition:background .15s}
+  .opt:hover .ctrl::before{background:rgba(103,58,183,.06)}
+  /* radio checked */
+  input[type=radio]:checked + .ctrl{border-color:var(--theme)}
+  input[type=radio]:checked + .ctrl::after{content:"";position:absolute;inset:3px;
+    border-radius:50%;background:var(--theme)}
+  /* checkbox */
+  input[type=checkbox] + .ctrl{border-radius:2px}
+  input[type=checkbox]:checked + .ctrl{background:var(--theme);border-color:var(--theme)}
+  input[type=checkbox]:checked + .ctrl::after{content:"";position:absolute;left:5px;top:1px;
+    width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .opt .lab{font-size:14px;color:var(--ink)}
+  input:focus-visible + .ctrl{box-shadow:0 0 0 2px rgba(103,58,183,.4)}
+
+  /* ---- Linear scale ---- */
+  .lin{display:flex;align-items:center;gap:6px;margin-top:18px;flex-wrap:wrap}
+  .lin-end{font-size:13px;color:var(--ink);max-width:96px}
+  .lin-cols{display:flex;flex:1;justify-content:space-between;min-width:240px}
+  .lin-col{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;padding:0 4px}
+  .lin-num{font-size:14px;color:var(--ink)}
+
+  /* ---- Footer / actions ---- */
+  .actions{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+  .submit{background:var(--theme);color:#fff;border:none;border-radius:4px;height:36px;
+    padding:0 24px;font:500 14px 'Roboto',sans-serif;letter-spacing:.25px;cursor:pointer;
+    box-shadow:0 1px 2px rgba(0,0,0,.15);transition:background .15s,box-shadow .15s}
+  .submit:hover{background:var(--theme-dark);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .submit:disabled{opacity:.7;cursor:default}
+  .clear{background:none;border:none;color:var(--theme);font:500 14px 'Roboto',sans-serif;
+    padding:8px;cursor:pointer;border-radius:4px}
+  .clear:hover{background:rgba(103,58,183,.06)}
+
+  .err{display:none;color:var(--req);font-size:13px;margin:0 0 12px}
+
+  .pagefoot{font-size:12px;color:var(--ink-2);text-align:center;line-height:1.6;margin-top:18px}
+  .pagefoot .brandline{margin-top:10px;font-weight:500;color:var(--ink-2)}
+  .pagefoot a{color:var(--ink-2)}
+
+  /* ---- Confirmation ---- */
+  #done{display:none}
+  #done .card p{font-size:14px;color:var(--ink);margin:0 0 14px}
+  #done .again{color:var(--theme);font-size:14px;font-weight:500;text-decoration:none}
+  #done .again:hover{text-decoration:underline}
+
+  @media (max-width:480px){
+    .header h1{font-size:26px}
+    .lin-end{max-width:70px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <form id="survey" novalidate>
+    <!-- Header card -->
+    <div class="card header">
+      <h1>K-MER EVENT — User Survey</h1>
+      <p class="desc">Help us shape the future of event discovery in Cameroon. This short survey (about 3 minutes) evaluates the need for, and acceptance of, K-MER EVENT — a platform to discover, share and attend events with secure QR tickets. Your answers are anonymous.</p>
+      <p class="req-note">* Indicates required question</p>
+    </div>
+
+    <!-- Q1 -->
+    <div class="card q">
+      <p class="title">What is your age group?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q1" value="Under 18"><span class="ctrl"></span><span class="lab">Under 18</span></label>
+        <label class="opt"><input type="radio" name="q1" value="18–24"><span class="ctrl"></span><span class="lab">18–24</span></label>
+        <label class="opt"><input type="radio" name="q1" value="25–34"><span class="ctrl"></span><span class="lab">25–34</span></label>
+        <label class="opt"><input type="radio" name="q1" value="35–44"><span class="ctrl"></span><span class="lab">35–44</span></label>
+        <label class="opt"><input type="radio" name="q1" value="45 and above"><span class="ctrl"></span><span class="lab">45 and above</span></label>
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="card q">
+      <p class="title">What is your gender?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q2" value="Female"><span class="ctrl"></span><span class="lab">Female</span></label>
+        <label class="opt"><input type="radio" name="q2" value="Male"><span class="ctrl"></span><span class="lab">Male</span></label>
+        <label class="opt"><input type="radio" name="q2" value="Prefer not to say"><span class="ctrl"></span><span class="lab">Prefer not to say</span></label>
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="card q">
+      <p class="title">Which role best describes you?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q3" value="Attendee"><span class="ctrl"></span><span class="lab">Attendee — I go to events</span></label>
+        <label class="opt"><input type="radio" name="q3" value="Organizer"><span class="ctrl"></span><span class="lab">Organizer — I create / manage events</span></label>
+        <label class="opt"><input type="radio" name="q3" value="Both"><span class="ctrl"></span><span class="lab">Both</span></label>
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="card q">
+      <p class="title">How often do you attend events?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q4" value="Weekly"><span class="ctrl"></span><span class="lab">Weekly</span></label>
+        <label class="opt"><input type="radio" name="q4" value="Monthly"><span class="ctrl"></span><span class="lab">Monthly</span></label>
+        <label class="opt"><input type="radio" name="q4" value="A few times a year"><span class="ctrl"></span><span class="lab">A few times a year</span></label>
+        <label class="opt"><input type="radio" name="q4" value="Rarely"><span class="ctrl"></span><span class="lab">Rarely</span></label>
+      </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="card q">
+      <p class="title">How do you usually discover events?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q5" value="Social media (Facebook, Instagram, TikTok)"><span class="ctrl"></span><span class="lab">Social media (Facebook, Instagram, TikTok)</span></label>
+        <label class="opt"><input type="checkbox" name="q5" value="WhatsApp groups / messages"><span class="ctrl"></span><span class="lab">WhatsApp groups / messages</span></label>
+        <label class="opt"><input type="checkbox" name="q5" value="Word of mouth (friends, family)"><span class="ctrl"></span><span class="lab">Word of mouth (friends, family)</span></label>
+        <label class="opt"><input type="checkbox" name="q5" value="Posters / flyers / radio"><span class="ctrl"></span><span class="lab">Posters, flyers or radio</span></label>
+        <label class="opt"><input type="checkbox" name="q5" value="Dedicated event apps/websites"><span class="ctrl"></span><span class="lab">Dedicated event apps / websites</span></label>
+      </div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="card q">
+      <p class="title">What challenges do you face with events today?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q6" value="Finding out what events exist"><span class="ctrl"></span><span class="lab">Finding out what events exist</span></label>
+        <label class="opt"><input type="checkbox" name="q6" value="Unreliable / scattered information"><span class="ctrl"></span><span class="lab">Unreliable or scattered information</span></label>
+        <label class="opt"><input type="checkbox" name="q6" value="Fake or duplicated tickets"><span class="ctrl"></span><span class="lab">Fake or duplicated tickets</span></label>
+        <label class="opt"><input type="checkbox" name="q6" value="Difficult or unsafe payment"><span class="ctrl"></span><span class="lab">Difficult or unsafe payment</span></label>
+        <label class="opt"><input type="checkbox" name="q6" value="Long queues / slow check-in"><span class="ctrl"></span><span class="lab">Long queues / slow check-in at the gate</span></label>
+      </div>
+    </div>
+
+    <!-- Q7 linear scale -->
+    <div class="card q">
+      <p class="title">How important is having a single platform to discover and book events?<span class="star">*</span></p>
+      <div class="body">
+        <div class="lin">
+          <span class="lin-end">Not important</span>
+          <div class="lin-cols">
+            <label class="lin-col"><span class="lin-num">1</span><input type="radio" name="q7" value="1"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">2</span><input type="radio" name="q7" value="2"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">3</span><input type="radio" name="q7" value="3"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">4</span><input type="radio" name="q7" value="4"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">5</span><input type="radio" name="q7" value="5"><span class="ctrl"></span></label>
+          </div>
+          <span class="lin-end">Extremely important</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q8 -->
+    <div class="card q">
+      <p class="title">Which features would be most useful to you?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q8" value="Search & filters (date, location, category)"><span class="ctrl"></span><span class="lab">Search &amp; filters (date, location, category)</span></label>
+        <label class="opt"><input type="checkbox" name="q8" value="Secure QR-code tickets"><span class="ctrl"></span><span class="lab">Secure QR-code tickets</span></label>
+        <label class="opt"><input type="checkbox" name="q8" value="Real-time updates & reminders"><span class="ctrl"></span><span class="lab">Real-time updates &amp; reminders</span></label>
+        <label class="opt"><input type="checkbox" name="q8" value="Favorites / saved events"><span class="ctrl"></span><span class="lab">Favorites / saved events</span></label>
+        <label class="opt"><input type="checkbox" name="q8" value="One-tap WhatsApp sharing"><span class="ctrl"></span><span class="lab">One-tap WhatsApp sharing</span></label>
+        <label class="opt"><input type="checkbox" name="q8" value="Organizer dashboard & statistics"><span class="ctrl"></span><span class="lab">Organizer dashboard &amp; statistics</span></label>
+      </div>
+    </div>
+
+    <!-- Q9 -->
+    <div class="card q">
+      <p class="title">What information is essential when viewing an event?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q9" value="Date & time"><span class="ctrl"></span><span class="lab">Date &amp; time</span></label>
+        <label class="opt"><input type="checkbox" name="q9" value="Location / map"><span class="ctrl"></span><span class="lab">Location / map</span></label>
+        <label class="opt"><input type="checkbox" name="q9" value="Price"><span class="ctrl"></span><span class="lab">Price</span></label>
+        <label class="opt"><input type="checkbox" name="q9" value="Organizer identity"><span class="ctrl"></span><span class="lab">Organizer identity</span></label>
+        <label class="opt"><input type="checkbox" name="q9" value="Photos / media"><span class="ctrl"></span><span class="lab">Photos / media</span></label>
+        <label class="opt"><input type="checkbox" name="q9" value="Number of attendees / availability"><span class="ctrl"></span><span class="lab">Number of attendees / availability</span></label>
+      </div>
+    </div>
+
+    <!-- Q10 -->
+    <div class="card q">
+      <p class="title">How would you prefer to share an event?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q10" value="WhatsApp"><span class="ctrl"></span><span class="lab">WhatsApp</span></label>
+        <label class="opt"><input type="radio" name="q10" value="Facebook / Instagram"><span class="ctrl"></span><span class="lab">Facebook / Instagram</span></label>
+        <label class="opt"><input type="radio" name="q10" value="Copy link"><span class="ctrl"></span><span class="lab">Copy link</span></label>
+        <label class="opt"><input type="radio" name="q10" value="SMS / Email"><span class="ctrl"></span><span class="lab">SMS / Email</span></label>
+      </div>
+    </div>
+
+    <!-- Q11 linear scale -->
+    <div class="card q">
+      <p class="title">How much would secure QR-code tickets increase your confidence?<span class="star">*</span></p>
+      <div class="body">
+        <div class="lin">
+          <span class="lin-end">Not at all</span>
+          <div class="lin-cols">
+            <label class="lin-col"><span class="lin-num">1</span><input type="radio" name="q11" value="1"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">2</span><input type="radio" name="q11" value="2"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">3</span><input type="radio" name="q11" value="3"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">4</span><input type="radio" name="q11" value="4"><span class="ctrl"></span></label>
+            <label class="lin-col"><span class="lin-num">5</span><input type="radio" name="q11" value="5"><span class="ctrl"></span></label>
+          </div>
+          <span class="lin-end">A great deal</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q12 -->
+    <div class="card q">
+      <p class="title">Which measures would make you trust the platform?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q12" value="Verified organizers"><span class="ctrl"></span><span class="lab">Verified organizers</span></label>
+        <label class="opt"><input type="checkbox" name="q12" value="Secure / encrypted tickets"><span class="ctrl"></span><span class="lab">Secure, encrypted tickets</span></label>
+        <label class="opt"><input type="checkbox" name="q12" value="Ratings & reviews"><span class="ctrl"></span><span class="lab">Ratings &amp; reviews</span></label>
+        <label class="opt"><input type="checkbox" name="q12" value="Trusted payment providers"><span class="ctrl"></span><span class="lab">Trusted payment providers</span></label>
+        <label class="opt"><input type="checkbox" name="q12" value="Refund / cancellation policy"><span class="ctrl"></span><span class="lab">Clear refund / cancellation policy</span></label>
+      </div>
+    </div>
+
+    <!-- Q13 -->
+    <div class="card q">
+      <p class="title">What is your preferred payment method?<span class="star">*</span></p>
+      <p class="help">Select all that apply.</p>
+      <div class="body">
+        <label class="opt"><input type="checkbox" name="q13" value="MTN Mobile Money"><span class="ctrl"></span><span class="lab">MTN Mobile Money</span></label>
+        <label class="opt"><input type="checkbox" name="q13" value="Orange Money"><span class="ctrl"></span><span class="lab">Orange Money</span></label>
+        <label class="opt"><input type="checkbox" name="q13" value="Bank card (Visa / Mastercard)"><span class="ctrl"></span><span class="lab">Bank card (Visa / Mastercard)</span></label>
+        <label class="opt"><input type="checkbox" name="q13" value="Cash at the venue"><span class="ctrl"></span><span class="lab">Cash at the venue</span></label>
+      </div>
+    </div>
+
+    <!-- Q14 -->
+    <div class="card q">
+      <p class="title">What is a reasonable price for a typical event ticket? (FCFA)<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q14" value="Free"><span class="ctrl"></span><span class="lab">Free events only</span></label>
+        <label class="opt"><input type="radio" name="q14" value="Under 2,000"><span class="ctrl"></span><span class="lab">Under 2,000 FCFA</span></label>
+        <label class="opt"><input type="radio" name="q14" value="2,000 – 5,000"><span class="ctrl"></span><span class="lab">2,000 – 5,000 FCFA</span></label>
+        <label class="opt"><input type="radio" name="q14" value="5,000 – 10,000"><span class="ctrl"></span><span class="lab">5,000 – 10,000 FCFA</span></label>
+        <label class="opt"><input type="radio" name="q14" value="Above 10,000"><span class="ctrl"></span><span class="lab">Above 10,000 FCFA</span></label>
+      </div>
+    </div>
+
+    <!-- Q15 -->
+    <div class="card q">
+      <p class="title">If available, how often would you use K-MER EVENT?<span class="star">*</span></p>
+      <div class="body">
+        <label class="opt"><input type="radio" name="q15" value="Daily"><span class="ctrl"></span><span class="lab">Daily</span></label>
+        <label class="opt"><input type="radio" name="q15" value="Weekly"><span class="ctrl"></span><span class="lab">Weekly</span></label>
+        <label class="opt"><input type="radio" name="q15" value="Monthly"><span class="ctrl"></span><span class="lab">Monthly</span></label>
+        <label class="opt"><input type="radio" name="q15" value="Occasionally"><span class="ctrl"></span><span class="lab">Occasionally</span></label>
+        <label class="opt"><input type="radio" name="q15" value="Never"><span class="ctrl"></span><span class="lab">Never</span></label>
+      </div>
+    </div>
+
+    <p class="err" id="err">Please complete all required questions before submitting.</p>
+
+    <div class="actions">
+      <button type="submit" class="submit">Submit</button>
+      <button type="button" class="clear" id="clear">Clear form</button>
+    </div>
+  </form>
+
+  <!-- Confirmation -->
+  <div id="done">
+    <div class="card header">
+      <h1>K-MER EVENT — User Survey</h1>
+    </div>
+    <div class="card">
+      <p>Your response has been recorded.</p>
+      <a class="again" href="#" id="again">Submit another response</a>
+    </div>
+  </div>
+
+  <div class="pagefoot">
+    Never submit passwords through this form.<br>
+    This content is created for academic research on K-MER EVENT — it is neither created nor endorsed by Google.
+    <div class="brandline">K-MER EVENT</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -17,6 +19,7 @@ import userRoutes from './routes/userRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import waitlistRoutes from './routes/waitlistRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
+import surveyRoutes from './routes/surveyRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 
@@ -25,9 +28,28 @@ dotenv.config();
 
 const app = express();
 
+// Behind exactly one reverse proxy (Nginx in production, or a Cloudflare/ngrok
+// tunnel when sharing the survey). Lets express read the real client IP from
+// X-Forwarded-For so rate-limiting is per-respondent, not per-proxy.
+app.set('trust proxy', 1);
+
+// Resolve paths relative to this file (not the process CWD) so static dirs
+// work no matter where the server is launched from.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // Allow cross-origin loading of resources (e.g. uploaded images served from
 // /uploads consumed by the frontend on a different port/origin in dev).
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      // Allow the Socket.IO realtime connection (same-origin WebSocket) used by
+      // the live survey dashboard, on top of the helmet defaults.
+      'connect-src': ["'self'", 'ws:', 'wss:'],
+    },
+  },
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -41,13 +63,27 @@ const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
 
 const isLocalhost = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
+// Public tunnels used to share the survey (Cloudflare, ngrok, localtunnel).
+// The form is served same-origin through these, so their Origin must be allowed.
+const isTunnel = (origin) => {
+  try {
+    return /\.(trycloudflare\.com|ngrok-free\.app|ngrok\.io|loca\.lt)$/.test(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+};
+
 const corsOptions = {
   origin(origin, callback) {
     // Non-browser clients (curl, server-to-server) send no Origin header.
-    if (!origin || allowedOrigins.includes(origin) || isLocalhost(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isLocalhost(origin) || isTunnel(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    // Do NOT throw for an unknown origin: that would turn every same-origin
+    // POST (whose browser still sends an Origin header) into a 500. Instead
+    // proceed without CORS headers — same-origin requests succeed, and genuine
+    // cross-origin reads are still blocked by the browser.
+    return callback(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -101,6 +137,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/geocode', geocodeRoutes);
+app.use('/api/survey', surveyRoutes);
+
+// Serve the public survey form and the admin results dashboard same-origin,
+// so the shareable link is simply  https://<host>/survey/  with no CORS or
+// API-base configuration needed. The directory lives at repo-root/survey.
+app.use('/survey', express.static(path.join(__dirname, '..', 'survey')));
 
 
 

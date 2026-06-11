@@ -1,0 +1,3 @@
+# Cloudflare tunnel runtime logs (not source)
+tunnel.log
+tunnel.log.out

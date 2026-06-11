@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>K-MER EVENT — Survey Responses (Admin)</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --theme:#673ab7;
+    --theme-dark:#5b2ca8;
+    --bg:#f0ebf8;
+    --card:#fff;
+    --line:#dadce0;
+    --ink:#202124;
+    --ink-2:#5f6368;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);font-family:'Roboto',Arial,sans-serif;color:var(--ink);line-height:1.4;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 12px 48px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:24px;margin-bottom:12px}
+  .header{border-top:10px solid var(--theme);padding-top:22px}
+  .header h1{font-size:30px;font-weight:400;margin:0 0 6px}
+  .header .count{font-size:14px;color:var(--ink-2)}
+
+  /* Toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .toolbar input{flex:1;min-width:200px;height:38px;padding:0 12px;border:1px solid var(--line);
+    border-radius:4px;font:14px 'Roboto',sans-serif;color:var(--ink)}
+  .toolbar input:focus{outline:none;border-color:var(--theme);box-shadow:0 0 0 1px var(--theme)}
+  .btn{height:38px;padding:0 20px;border:none;border-radius:4px;font:500 14px 'Roboto',sans-serif;
+    cursor:pointer;background:var(--theme);color:#fff}
+  .btn:hover{background:var(--theme-dark)}
+  .btn.ghost{background:#fff;color:var(--theme);border:1px solid var(--line)}
+  .btn.ghost:hover{background:rgba(103,58,183,.06)}
+  .hint{font-size:12px;color:var(--ink-2);margin:10px 2px 0}
+
+  .status{font-size:14px;color:var(--ink-2)}
+  .status.err{color:#d93025}
+
+  /* Question card */
+  .fig .figno{font-size:12px;color:var(--theme);font-weight:500;margin:0 0 2px}
+  .fig h3{font-size:16px;font-weight:500;margin:0 0 2px;line-height:22px}
+  .fig .sub{font-size:13px;color:var(--ink-2);margin:0 0 16px}
+  .fig .empty{font-size:14px;color:var(--ink-2);padding:14px 0}
+
+  /* Pie + legend */
+  .pie-row{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .pie{width:170px;height:170px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.04)}
+  .legend{flex:1;min-width:180px;display:flex;flex-direction:column;gap:9px}
+  .leg{display:flex;align-items:center;gap:10px;font-size:13px}
+  .sw{width:13px;height:13px;border-radius:2px;flex:none}
+  .leg .lab{flex:1;color:var(--ink)}
+  .leg .val{color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+  /* Horizontal bars (checkboxes) */
+  .hbars{display:flex;flex-direction:column;gap:14px}
+  .hbar .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px}
+  .hbar .top .val{color:var(--ink-2);flex:none;font-variant-numeric:tabular-nums}
+  .htrack{height:26px;background:#f1f3f4;border-radius:2px;overflow:hidden}
+  .hfill{height:100%;border-radius:0 2px 2px 0}
+
+  /* Vertical columns (linear scale) */
+  .cols{display:flex;align-items:flex-end;gap:18px;height:200px;padding:8px 6px 0;
+    border-left:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+  .col .cv{font-size:12px;color:var(--ink-2)}
+  .col .cbar{width:100%;max-width:64px;background:var(--theme);border-radius:2px 2px 0 0;min-height:2px;
+    transition:height .4s ease}
+  .col .cn{font-size:13px;color:var(--ink);margin-top:6px}
+  .scale-x{display:flex;gap:18px;padding:0 6px}
+  .scale-x .sx{flex:1;text-align:center}
+
+  footer{font-size:12px;color:var(--ink-2);text-align:center;margin-top:18px}
+
+  @media print{
+    body{background:#fff}
+    .toolbar-card,.hint,footer{display:none}
+    .card{break-inside:avoid;border-color:#ccc}
+  }
+  @media (max-width:560px){ .pie{margin:0 auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card header">
+    <h1>K-MER EVENT — User Survey</h1>
+    <div class="count" id="count">Responses</div>
+  </div>
+
+  <div class="card toolbar-card">
+    <div class="toolbar">
+      <input id="api" placeholder="API base — e.g. http://localhost:4000" />
+      <input id="token" type="password" placeholder="Admin JWT token" />
+      <button type="button" class="btn" id="load">Load</button>
+      <button type="button" class="btn ghost" id="print">Print</button>
+    </div>
+    <div class="hint" id="status">Enter your admin token and click <b>Load</b>. Charts map 1-to-1 to Figures 4.1–4.15.</div>
+  </div>
+
+  <div id="grid"></div>
+
+  <footer>K-MER EVENT — Survey responses summary</footer>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="results.js"></script>
+</body>
+</html>

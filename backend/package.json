@@ -19,7 +19,9 @@
     "migrate:waitlist": "node scripts/migrate-waitlist.js up",
     "migrate:waitlist:down": "node scripts/migrate-waitlist.js down",
     "migrate:geo": "node scripts/migrate-geo.js up",
-    "migrate:geo:down": "node scripts/migrate-geo.js down"
+    "migrate:geo:down": "node scripts/migrate-geo.js down",
+    "migrate:survey": "node scripts/migrate-survey.js up",
+    "migrate:survey:down": "node scripts/migrate-survey.js down"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
