@@ -9,7 +9,24 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
+// Phones (iPhone especially) save gallery photos as HEIC/HEIF, so accept them
+// alongside the common web formats.
+const ALLOWED = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+]);
+
+// Some mobile browsers/galleries send a generic or empty mimetype for HEIC and
+// other photos. Fall back to the file extension so a real image isn't rejected.
+const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.heic', '.heif']);
+const GENERIC_MIMES = new Set(['application/octet-stream', 'binary/octet-stream', '']);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
@@ -22,15 +39,21 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (ALLOWED.has(file.mimetype)) return cb(null, true);
-  cb(new Error('Type de fichier non supporté. Images uniquement (jpeg, png, webp, gif, avif).'));
+  const mime = (file.mimetype || '').toLowerCase();
+  if (ALLOWED.has(mime)) return cb(null, true);
+
+  // Generic/unknown mimetype: trust a recognised image extension instead.
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (GENERIC_MIMES.has(mime) && ALLOWED_EXT.has(ext)) return cb(null, true);
+
+  cb(new Error('Type de fichier non supporté. Images uniquement (jpeg, png, webp, gif, avif, heic).'));
 };
 
 export const uploadImages = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 8 * 1024 * 1024, // 8 MB per file
+    fileSize: 25 * 1024 * 1024, // 25 MB per file (phone photos can be large)
     files: 10,
   },
 });

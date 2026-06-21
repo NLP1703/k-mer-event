@@ -189,7 +189,7 @@ server {
         proxy_set_header Host $host;
     }
 
-    client_max_body_size 12M;   # tolérer l'upload d'images (8 Mo max applicatif)
+    client_max_body_size 30M;   # tolérer l'upload d'images (25 Mo max applicatif, photos de téléphone)
 }
 ```
 Activer le site et recharger :

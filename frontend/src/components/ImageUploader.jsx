@@ -30,7 +30,14 @@ function ImageUploader({ value, onChange, multiple = false, label }) {
         onChange(uploaded[0] || '');
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Échec de l’upload. Réessayez.');
+      // No `response` means the request never reached the server (network error).
+      // On a phone this is almost always because the API URL points to
+      // "localhost" instead of the machine's LAN address / tunnel.
+      const msg = err?.response?.data?.message
+        || (err?.request && !err?.response
+          ? 'Serveur injoignable. Vérifiez votre connexion (sur mobile, l’API ne doit pas pointer vers « localhost »).'
+          : 'Échec de l’upload. Réessayez.');
+      setError(msg);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = ''; // allow re-selecting same file
@@ -76,7 +83,7 @@ function ImageUploader({ value, onChange, multiple = false, label }) {
           {uploading ? 'Téléversement…' : multiple ? 'Choisir des images depuis l’appareil' : 'Choisir une image depuis l’appareil'}
         </span>
         <span className="text-xs text-subtle">
-          {multiple ? 'Plusieurs fichiers acceptés · ' : ''}JPG, PNG, WEBP, GIF · 8 Mo max
+          {multiple ? 'Plusieurs fichiers acceptés · ' : ''}JPG, PNG, WEBP, GIF, HEIC · 25 Mo max
         </span>
       </button>
 
