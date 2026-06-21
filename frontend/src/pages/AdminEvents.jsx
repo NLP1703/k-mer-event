@@ -57,8 +57,8 @@ function AdminEvents() {
     try {
       const response = await createEvent({
         ...form,
-        ticket_price: Number(form.ticket_price),
-        ticket_quantity: Number(form.ticket_quantity),
+        ticket_price: Number(form.ticket_price) || 0,
+        ticket_quantity: Number(form.ticket_quantity) || 0,
         photo_urls: (form.photo_urls || []).filter(Boolean),
       });
       setMessage('Événement créé avec succès');
@@ -103,8 +103,8 @@ function AdminEvents() {
     try {
       const response = await updateEvent(eventId, {
         ...editForm,
-        ticket_price: Number(editForm.ticket_price),
-        ticket_quantity: Number(editForm.ticket_quantity),
+        ticket_price: Number(editForm.ticket_price) || 0,
+        ticket_quantity: Number(editForm.ticket_quantity) || 0,
         photo_urls: editForm.photo_urls?.filter(Boolean) || [],
       });
       setEvents((prev) => prev.map((event) => (event.id === eventId ? { ...event, ...response.event } : event)));
@@ -199,15 +199,17 @@ function AdminEvents() {
                 <input type="datetime-local" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={inputClass} />
               </label>
               <label className="block text-muted">
-                Nombre de places
-                <input type="number" min="1" value={form.ticket_quantity} onChange={(e) => setForm({ ...form, ticket_quantity: e.target.value })} className={inputClass} />
+                Nombre de places (optionnel)
+                <input type="number" min="0" placeholder="Laisser vide si pas de billetterie" value={form.ticket_quantity} onChange={(e) => setForm({ ...form, ticket_quantity: e.target.value })} className={inputClass} />
               </label>
             </div>
 
+            <p className="text-xs text-subtle">Billetterie facultative : laissez le nombre de places et le prix vides si l’événement n’a pas de billetterie (entrée libre).</p>
+
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block text-muted">
-                Prix
-                <input type="number" step="0.01" value={form.ticket_price} onChange={(e) => setForm({ ...form, ticket_price: e.target.value })} className={inputClass} />
+                Prix (optionnel)
+                <input type="number" step="0.01" min="0" placeholder="0 = gratuit" value={form.ticket_price} onChange={(e) => setForm({ ...form, ticket_price: e.target.value })} className={inputClass} />
               </label>
               <label className="block text-muted">
                 Statut
@@ -352,12 +354,12 @@ function AdminEvents() {
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block text-muted">
-                          Nombre de places
-                          <input type="number" min="1" value={editForm.ticket_quantity} onChange={(e) => handleEditChange('ticket_quantity', e.target.value)} className={inputClass} />
+                          Nombre de places (optionnel)
+                          <input type="number" min="0" placeholder="Vide = pas de billetterie" value={editForm.ticket_quantity} onChange={(e) => handleEditChange('ticket_quantity', e.target.value)} className={inputClass} />
                         </label>
                         <label className="block text-muted">
-                          Prix
-                          <input type="number" step="0.01" value={editForm.ticket_price} onChange={(e) => handleEditChange('ticket_price', e.target.value)} className={inputClass} />
+                          Prix (optionnel)
+                          <input type="number" step="0.01" min="0" placeholder="0 = gratuit" value={editForm.ticket_price} onChange={(e) => handleEditChange('ticket_price', e.target.value)} className={inputClass} />
                         </label>
                       </div>
 

@@ -50,6 +50,8 @@ const formatDate = (iso) => {
 function EventCard({ event }) {
   const remaining = Number(event?.remaining_tickets ?? 0);
   const total = Number(event?.ticket_quantity ?? 0);
+  const hasTicketing = total > 0;
+  const isFree = hasTicketing && Number(event?.ticket_price ?? 0) <= 0;
   const isSoldOut = total > 0 && remaining <= 0;
   const isLow = !isSoldOut && total > 0 && remaining / total <= 0.15;
   const { isFavorite, toggle } = useFavorites();
@@ -111,8 +113,12 @@ function EventCard({ event }) {
 
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-subtle">À partir de</p>
-            <p className="text-base font-semibold text-fg">{formatPrice(event.ticket_price)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-subtle">
+              {hasTicketing ? 'À partir de' : 'Accès'}
+            </p>
+            <p className="text-base font-semibold text-fg">
+              {!hasTicketing ? 'Entrée libre' : isFree ? 'Gratuit' : formatPrice(event.ticket_price)}
+            </p>
           </div>
           <Link
             to={`/event/${event.id}`}

@@ -199,7 +199,8 @@ export const createEvent = async (req, res, next) => {
       status: requestedStatus,
     } = req.body;
 
-    const quantity = Number(ticket_quantity);
+    // Ticketing is optional — empty/absent values mean "no ticketing" (0).
+    const quantity = Number(ticket_quantity) || 0;
 
     const eventPayload = {
       title,
@@ -216,7 +217,7 @@ export const createEvent = async (req, res, next) => {
       longitude: parseCoordinate(longitude, 'lng'),
       start_date,
       end_date,
-      ticket_price: Number(ticket_price),
+      ticket_price: Number(ticket_price) || 0,
       ticket_quantity: quantity,
       remaining_tickets: quantity,
       tags,

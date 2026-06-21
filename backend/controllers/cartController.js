@@ -33,6 +33,11 @@ export const addToCart = async (req, res, next) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
+    // Ticketing is optional: events without it cannot be booked.
+    if (Number(event.ticket_quantity) <= 0) {
+      return res.status(400).json({ message: 'Cet événement n’a pas de billetterie' });
+    }
+
     const [item, created] = await Cart.findOrCreate({
       where: { user_id: req.user.id, event_id: eventId },
       defaults: { quantity },

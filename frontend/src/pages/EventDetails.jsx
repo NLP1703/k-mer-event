@@ -170,7 +170,9 @@ function EventDetails() {
 
   const showVideo = !!event && isPlayableVideoUrl(event.video_url) && !videoFailed;
   const remaining = Number(event?.remaining_tickets ?? 0);
-  const isSoldOut = remaining <= 0;
+  const hasTicketing = Number(event?.ticket_quantity ?? 0) > 0;
+  const isFree = hasTicketing && Number(event?.ticket_price ?? 0) <= 0;
+  const isSoldOut = hasTicketing && remaining <= 0;
   const eventLat = Number(event?.latitude);
   const eventLng = Number(event?.longitude);
   const hasCoords =
@@ -397,10 +399,22 @@ function EventDetails() {
         <aside>
           <div className="lg:sticky lg:top-24">
             <Card className="p-6">
+              {!hasTicketing ? (
+                <div className="text-center py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-subtle">Accès</p>
+                  <p className="mt-1 text-2xl font-semibold text-fg">Entrée libre</p>
+                  <p className="mt-3 text-sm text-muted">
+                    Cet événement n’a pas de billetterie — aucune réservation n’est nécessaire.
+                  </p>
+                </div>
+              ) : (
+              <>
               <div className="flex items-baseline justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-subtle">Prix unitaire</p>
-                  <p className="text-3xl font-semibold text-fg">{formatPrice(event.ticket_price)}</p>
+                  <p className="text-3xl font-semibold text-fg">
+                    {isFree ? 'Gratuit' : formatPrice(event.ticket_price)}
+                  </p>
                 </div>
                 {isSoldOut ? (
                   <Badge variant="danger">Complet</Badge>
@@ -489,6 +503,8 @@ function EventDetails() {
                   Événement complet — soyez prévenu(e) par e-mail dès qu’une place se libère.
                 </p>
               ) : null}
+              </>
+              )}
 
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <button

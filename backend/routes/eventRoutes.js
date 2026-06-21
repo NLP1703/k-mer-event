@@ -35,8 +35,15 @@ router.post(
     body('venue').notEmpty().withMessage('Venue is required'),
     body('organizer').notEmpty().withMessage('Organizer is required'),
     body('start_date').notEmpty().withMessage('Start date is required'),
-    body('ticket_quantity').isInt({ min: 1 }).withMessage('Ticket quantity must be at least 1'),
-    body('ticket_price').isFloat({ min: 0 }).withMessage('Ticket price is required'),
+    // Ticketing is optional: an event with no ticketing leaves these empty/0.
+    body('ticket_quantity')
+      .optional({ checkFalsy: true })
+      .isInt({ min: 0 })
+      .withMessage('Ticket quantity must be 0 or more'),
+    body('ticket_price')
+      .optional({ checkFalsy: true })
+      .isFloat({ min: 0 })
+      .withMessage('Ticket price must be 0 or more'),
     body('video_url')
       .optional({ checkFalsy: true })
       .isLength({ max: 1000 })
