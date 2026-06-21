@@ -129,6 +129,20 @@ export const uploadImages = async (files) => {
   return response.data; // { urls: [...], url }
 };
 
+// Upload a single video file (device gallery picker). Bare axios call so the
+// browser sets the multipart boundary itself. Returns { url }.
+export const uploadVideo = async (file) => {
+  if (!file) return { url: '' };
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem('kmer-token');
+  const response = await axios.post(`${api.defaults.baseURL}/uploads/video`, formData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return response.data; // { url }
+};
+
 // Validate a ticket at the entrance. `code` is a booking number or the raw
 // QR JSON payload. Returns { status, message, booking } (status may also be
 // delivered via a non-2xx response, which we surface to the caller).

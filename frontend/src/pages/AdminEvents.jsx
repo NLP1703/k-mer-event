@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { fetchEvents, createEvent, deleteEvent, updateEvent, approveEvent, cancelEvent } from '../services/api.js';
 import ImageUploader from '../components/ImageUploader.jsx';
+import VideoUploader from '../components/VideoUploader.jsx';
 import LocationPicker from '../components/LocationPicker.jsx';
 
 const emptyForm = {
@@ -170,10 +171,11 @@ function AdminEvents() {
               onChange={(v) => setForm((s) => ({ ...s, banner_url: v }))}
             />
 
-            <label className="block text-muted">
-              Vidéo URL (optionnel)
-              <input value={form.video_url} onChange={(e) => setForm({ ...form, video_url: e.target.value })} className={inputClass} />
-            </label>
+            <VideoUploader
+              label="Vidéo de l’événement (optionnel)"
+              value={form.video_url}
+              onChange={(v) => setForm((s) => ({ ...s, video_url: v }))}
+            />
 
             <LocationPicker
               latitude={form.latitude}
@@ -326,10 +328,11 @@ function AdminEvents() {
                         onChange={(v) => handleEditChange('banner_url', v)}
                       />
 
-                      <label className="block text-muted">
-                        Vidéo URL (optionnel)
-                        <input value={editForm.video_url} onChange={(e) => handleEditChange('video_url', e.target.value)} className={inputClass} />
-                      </label>
+                      <VideoUploader
+                        label="Vidéo de l’événement (optionnel)"
+                        value={editForm.video_url}
+                        onChange={(v) => handleEditChange('video_url', v)}
+                      />
 
                       <LocationPicker
                         latitude={editForm.latitude}

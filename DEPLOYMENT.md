@@ -189,7 +189,7 @@ server {
         proxy_set_header Host $http_host;
     }
 
-    client_max_body_size 30M;   # tolérer l'upload d'images (25 Mo max applicatif, photos de téléphone)
+    client_max_body_size 120M;  # images 25 Mo + vidéos 100 Mo (upload depuis la galerie)
 }
 ```
 Activer le site et recharger :

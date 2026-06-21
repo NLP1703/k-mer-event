@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { authenticate, authorize } from '../middlewares/auth.js';
-import { uploadImages } from '../middlewares/upload.js';
+import { uploadImages, uploadVideos } from '../middlewares/upload.js';
 
 const router = express.Router();
 
@@ -30,6 +30,27 @@ router.post(
       }
       const urls = files.map((f) => fileUrl(req, f.filename));
       return res.status(201).json({ urls, url: urls[0] });
+    });
+  },
+);
+
+// POST /api/uploads/video — accepts a single video file under the field "file".
+// Returns { url }. Larger size cap than images (phone clips are heavy).
+router.post(
+  '/video',
+  authenticate,
+  authorize('admin', 'organizer'),
+  (req, res) => {
+    uploadVideos.single('file')(req, res, (err) => {
+      if (err) {
+        const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+        return res.status(status).json({ message: err.message || 'Échec de l’upload' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ message: 'Aucun fichier reçu' });
+      }
+      const url = fileUrl(req, req.file.filename);
+      return res.status(201).json({ url });
     });
   },
 );

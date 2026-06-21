@@ -57,3 +57,35 @@ export const uploadImages = multer({
     files: 10,
   },
 });
+
+// ---- Video uploads (gallery file picker, not URL) ----
+const ALLOWED_VIDEO = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime', // .mov (iPhone)
+  'video/x-matroska', // .mkv
+  'video/3gpp', // .3gp (older Android)
+  'video/x-msvideo', // .avi
+]);
+const ALLOWED_VIDEO_EXT = new Set(['.mp4', '.webm', '.ogv', '.ogg', '.mov', '.mkv', '.3gp', '.avi', '.m4v']);
+
+const videoFileFilter = (req, file, cb) => {
+  const mime = (file.mimetype || '').toLowerCase();
+  if (ALLOWED_VIDEO.has(mime)) return cb(null, true);
+
+  // Phones often send a generic/empty mimetype: trust the extension instead.
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (GENERIC_MIMES.has(mime) && ALLOWED_VIDEO_EXT.has(ext)) return cb(null, true);
+
+  cb(new Error('Type de fichier non supporté. Vidéos uniquement (mp4, webm, mov, ogg, 3gp, avi).'));
+};
+
+export const uploadVideos = multer({
+  storage,
+  fileFilter: videoFileFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100 MB per video
+    files: 1,
+  },
+});
