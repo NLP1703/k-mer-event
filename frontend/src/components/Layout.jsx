@@ -14,6 +14,7 @@ import {
   LogOut,
   BarChart3,
   ScanLine,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -84,6 +85,7 @@ function Layout() {
           Cart{cartCount ? ` (${cartCount})` : ''}
         </NavItem>
       ) : null}
+      {isAdmin ? <NavItem to="/dashboard" icon={LayoutDashboard} onClick={onClick}>Tableau de bord</NavItem> : null}
       {isAdmin ? <NavItem to="/admin/events" icon={CalendarCheck} onClick={onClick}>Événements</NavItem> : null}
       {isOrganizer ? <NavItem to="/admin/events" icon={IdCard} onClick={onClick}>Mes événements</NavItem> : null}
       {isOrganizer ? <NavItem to="/organizer/statistics" icon={BarChart3} onClick={onClick}>Statistiques</NavItem> : null}
