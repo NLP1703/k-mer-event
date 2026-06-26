@@ -21,6 +21,7 @@ import waitlistRoutes from './routes/waitlistRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
 import surveyRoutes from './routes/surveyRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { trackActivity } from './middlewares/trackActivity.js';
 
 
 dotenv.config();
@@ -117,6 +118,10 @@ app.use('/api/', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
+
+// Record authenticated activity (throttled, best-effort) for the weekly-usage
+// analytics on the admin dashboard. Never blocks or rejects a request.
+app.use('/api/', trackActivity);
 app.use(
   '/uploads',
   express.static('uploads', {

@@ -95,6 +95,15 @@ const syncDatabase = async () => {
       console.warn('⚠️ Could not ensure Cart table exists:', e?.message || e);
     }
 
+    // Ensure the `activity_log` table exists (weekly-usage analytics).
+    try {
+      const { ActivityLog } = await import('../models/ActivityLog.js');
+      await ActivityLog.sync({ alter: false, force: false });
+      console.log('✅ Ensured ActivityLog table exists');
+    } catch (e) {
+      console.warn('⚠️ Could not ensure ActivityLog table exists:', e?.message || e);
+    }
+
     console.log('✅ Database schema synced (attempted) successfully');
 
     // Seed demo events:

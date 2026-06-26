@@ -242,6 +242,18 @@ export const fetchBookingsForUserAdmin = async (userId) => {
   return response.data;
 };
 
+// Admin dashboard: snapshot of who is currently online.
+export const fetchPresence = async () => {
+  const response = await api.get('/dashboard/presence');
+  return response.data;
+};
+
+// Admin dashboard: platform usage aggregated per week.
+export const fetchWeeklyUsage = async (weeks = 8) => {
+  const response = await api.get('/dashboard/usage', { params: { weeks } });
+  return response.data;
+};
+
 
 
 
