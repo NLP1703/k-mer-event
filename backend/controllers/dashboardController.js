@@ -49,24 +49,20 @@ export const getDashboardStats = async (req, res, next) => {
       raw: true
     });
 
-    // Event performance (bookings per event)
-    const eventPerformance = await Event.findAll({
-      attributes: [
-        'id',
-        'title',
-        [Sequelize.fn('COUNT', Sequelize.col('bookings.id')), 'booking_count'],
-        [Sequelize.fn('SUM', Sequelize.col('bookings.total_price')), 'total_revenue']
-      ],
-      include: [{
-        model: Booking,
-        as: 'bookings',
-        attributes: []
-      }],
-      group: ['Event.id', 'Event.title'],
-      order: [[Sequelize.fn('COUNT', Sequelize.col('bookings.id')), 'DESC']],
-      limit: 10,
-      raw: true
-    });
+    // Event performance (bookings per event). Done as a raw aggregate join:
+    // Sequelize's COUNT(col('bookings.id')) + include + raw combination
+    // mis-aliases the joined table ("Unknown column 'bookings.id'"), so we
+    // express the join directly for a stable, predictable result.
+    const [eventPerformance] = await sequelize.query(
+      `SELECT e.id, e.title,
+              COUNT(b.id) AS booking_count,
+              COALESCE(SUM(b.total_price), 0) AS total_revenue
+       FROM events e
+       LEFT JOIN bookings b ON b.event_id = e.id
+       GROUP BY e.id, e.title
+       ORDER BY booking_count DESC
+       LIMIT 10`,
+    );
 
     // Recent bookings
     const recentBookings = await Booking.findAll({
