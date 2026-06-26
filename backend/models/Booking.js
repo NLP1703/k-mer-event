@@ -21,3 +21,11 @@ export const Booking = sequelize.define('Booking', {
 
 Booking.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Booking.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
+
+// Reverse (one-to-many) associations. Required by the admin dashboard, which
+// includes `Event` -> bookings (event performance) and lets us load a user's
+// bookings. Without these, Sequelize throws "Booking is not associated to
+// Event!" and the whole /api/dashboard response becomes an error object,
+// leaving every stat card and chart empty.
+Event.hasMany(Booking, { foreignKey: 'event_id', as: 'bookings' });
+User.hasMany(Booking, { foreignKey: 'user_id', as: 'bookings' });

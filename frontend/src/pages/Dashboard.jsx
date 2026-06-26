@@ -45,7 +45,13 @@ function Dashboard() {
 
   useEffect(() => {
     fetch('/api/dashboard', { headers: { Authorization: `Bearer ${localStorage.getItem('kmer-token')}` } })
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        // Never store an error payload as stats — that silently blanks every
+        // card/chart. Only commit a successful response.
+        if (!res.ok) throw new Error(data?.message || `Dashboard request failed (${res.status})`);
+        return data;
+      })
       .then(setStats)
       .catch(console.error);
 
