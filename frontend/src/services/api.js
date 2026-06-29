@@ -312,6 +312,28 @@ export const fetchBookingsForUserAdmin = async (userId) => {
   return response.data;
 };
 
+// Server-side favourites (multi-device sync). The localStorage store in
+// lib/favorites.js mirrors these for instant, offline-friendly UI.
+export const fetchFavorites = async () => {
+  const response = await api.get('/favorites');
+  return response.data; // { favorites, eventIds }
+};
+
+export const addFavoriteApi = async (eventId) => {
+  const response = await api.post('/favorites', { eventId });
+  return response.data;
+};
+
+export const removeFavoriteApi = async (eventId) => {
+  const response = await api.delete(`/favorites/${eventId}`);
+  return response.data;
+};
+
+export const syncFavoritesApi = async (eventIds) => {
+  const response = await api.post('/favorites/sync', { eventIds });
+  return response.data;
+};
+
 // Admin dashboard: aggregated platform statistics.
 export const fetchDashboardStats = async () => {
   const response = await api.get('/dashboard');

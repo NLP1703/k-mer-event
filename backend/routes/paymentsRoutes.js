@@ -1,7 +1,11 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { authenticate, authorize } from '../middlewares/auth.js';
-import { processPayment, getPaymentByBookingId } from '../controllers/paymentsController.js';
+import { authenticate } from '../middlewares/auth.js';
+import {
+  processPayment,
+  refundPayment,
+  getPaymentByBookingId,
+} from '../controllers/paymentsController.js';
 
 const router = express.Router();
 
@@ -14,14 +18,13 @@ router.post(
     body('provider').optional().isString().trim(),
     body('amount').optional().isFloat({ gt: 0 }).withMessage('amount must be > 0'),
   ],
-  processPayment
+  processPayment,
 );
 
-router.get(
-  '/:bookingId',
-  authenticate,
-  getPaymentByBookingId
-);
+// Refund a confirmed payment (owner or admin). Restores stock, cancels booking.
+router.post('/:bookingId/refund', authenticate, refundPayment);
+
+router.get('/:bookingId', authenticate, getPaymentByBookingId);
 
 export default router;
 

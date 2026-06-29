@@ -6,6 +6,7 @@ import {
   refreshSession,
 } from '../services/api.js';
 import { reconnectSocket } from '../lib/socket.js';
+import { syncFavoritesWithServer } from '../lib/favorites.js';
 
 const AuthContext = createContext();
 
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) {
           setUser(data.user);
           reconnectSocket();
+          syncFavoritesWithServer();
         }
       } catch {
         if (!cancelled) setUser(null);
@@ -53,6 +55,7 @@ export const AuthProvider = ({ children }) => {
     const data = await loginApi(credentials);
     setUser(data.user);
     reconnectSocket();
+    syncFavoritesWithServer();
     return data;
   };
 
@@ -60,6 +63,7 @@ export const AuthProvider = ({ children }) => {
     const data = await registerApi(payload);
     setUser(data.user);
     reconnectSocket();
+    syncFavoritesWithServer();
     return data;
   };
 

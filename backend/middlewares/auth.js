@@ -35,6 +35,24 @@ export const authenticate = async (req, res, next) => {
 };
 
 
+// Like authenticate, but never rejects: it populates req.user when a valid
+// access token is present and silently continues otherwise. Used on public
+// endpoints that expose extra data to privileged callers (e.g. admin event
+// stats) without leaking that data to anonymous/under-privileged clients.
+export const optionalAuthenticate = async (req, _res, next) => {
+  try {
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      const payload = verifyAccessToken(header.split(' ')[1]);
+      const user = await User.findByPk(payload.id);
+      if (user && !user.is_deleted) req.user = user;
+    }
+  } catch {
+    // ignore invalid/expired token — treat as anonymous
+  }
+  next();
+};
+
 export const authorize = (...allowedRoles) => (req, res, next) => {
   if (!req.user || !allowedRoles.includes(req.user.role)) {
     return res.status(403).json({ message: 'Forbidden' });

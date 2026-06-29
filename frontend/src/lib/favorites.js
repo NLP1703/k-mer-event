@@ -1,7 +1,13 @@
 import { useSyncExternalStore } from 'react';
+import {
+  getAccessToken,
+  addFavoriteApi,
+  removeFavoriteApi,
+  syncFavoritesApi,
+} from '../services/api.js';
 
-// Lightweight favorites store backed by localStorage, shared across all
-// components (no provider needed) and synced across browser tabs.
+// Favorites store backed by localStorage for instant, offline-friendly UI, and
+// mirrored to the server (multi-device sync) whenever the user is authenticated.
 const KEY = 'kmer-favorites';
 const listeners = new Set();
 
@@ -21,14 +27,36 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
+function writeAll(ids) {
+  localStorage.setItem(KEY, JSON.stringify([...new Set(ids.map(String))]));
+  emit();
+}
+
 export function toggleFavorite(id) {
   if (id == null) return;
   const key = String(id);
   const set = new Set(read().map(String));
-  if (set.has(key)) set.delete(key);
-  else set.add(key);
-  localStorage.setItem(KEY, JSON.stringify([...set]));
-  emit();
+  const adding = !set.has(key);
+  if (adding) set.add(key);
+  else set.delete(key);
+  writeAll([...set]);
+
+  // Best-effort server mirror (only when authenticated).
+  if (getAccessToken()) {
+    (adding ? addFavoriteApi(key) : removeFavoriteApi(key)).catch(() => {});
+  }
+}
+
+// Merge local favourites into the server set, then adopt the server as the
+// source of truth. Call on login / session restore.
+export async function syncFavoritesWithServer() {
+  if (!getAccessToken()) return;
+  try {
+    const data = await syncFavoritesApi(read());
+    if (Array.isArray(data?.eventIds)) writeAll(data.eventIds);
+  } catch {
+    // offline / unauthenticated — keep local copy
+  }
 }
 
 function subscribe(cb) {
