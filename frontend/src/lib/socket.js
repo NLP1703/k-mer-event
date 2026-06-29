@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { getAccessToken } from '../services/api.js';
 
 // The Socket.IO server shares the backend origin (strip the trailing /api).
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -12,7 +13,7 @@ export const socket = io(origin, {
   autoConnect: true,
   transports: ['websocket', 'polling'],
   reconnection: true,
-  auth: (cb) => cb({ token: localStorage.getItem('kmer-token') || undefined }),
+  auth: (cb) => cb({ token: getAccessToken() || undefined }),
 });
 
 // Force the handshake to re-run with the latest token (call on login/logout so

@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -93,12 +94,15 @@ const corsOptions = {
     'Accept',
     'X-Requested-With',
   ],
-  credentials: false,
+  // Required so the browser sends/receives the HttpOnly refresh-token cookie on
+  // cross-origin auth requests (dev: Vite :5173 -> API :4000).
+  credentials: true,
 };
 
 // Important: handle OPTIONS requests early so routers/auth don't block preflight
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
+app.use(cookieParser());
 
 
 app.use(morgan('dev'));

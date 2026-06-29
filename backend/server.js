@@ -2,8 +2,12 @@ import http from 'http';
 import app from './app.js';
 import { sequelize } from './config/db.js';
 import { initSocket } from './config/realtime.js';
+import { config, validateEnv } from './config/env.js';
 
-const PORT = process.env.PORT || 4000;
+// Refuse to boot with a missing/weak JWT secret or other invalid configuration.
+validateEnv();
+
+const PORT = config.port;
 
 const start = async () => {
   try {

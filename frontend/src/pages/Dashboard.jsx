@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
-import { fetchEvents, fetchPresence, fetchWeeklyUsage } from '../services/api.js';
+import { fetchEvents, fetchPresence, fetchWeeklyUsage, fetchDashboardStats } from '../services/api.js';
 import { socket } from '../lib/socket.js';
 import {
   LineChart,
@@ -44,16 +44,8 @@ function Dashboard() {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetch('/api/dashboard', { headers: { Authorization: `Bearer ${localStorage.getItem('kmer-token')}` } })
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        // Never store an error payload as stats — that silently blanks every
-        // card/chart. Only commit a successful response.
-        if (!res.ok) throw new Error(data?.message || `Dashboard request failed (${res.status})`);
-        return data;
-      })
-      .then(setStats)
-      .catch(console.error);
+    // Uses the shared API client (in-memory access token + auto-refresh on 401).
+    fetchDashboardStats().then(setStats).catch(console.error);
 
     fetchEvents().then((data) => setEvents(data.events.slice(0, 5))).catch(console.error);
 

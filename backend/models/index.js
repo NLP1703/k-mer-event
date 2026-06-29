@@ -7,6 +7,9 @@ import '../models/Payment.js';
 import '../models/Waitlist.js';
 import '../models/SurveyResponse.js';
 import '../models/ActivityLog.js';
+import '../models/RefreshToken.js';
+import '../models/LoginAttempt.js';
+import '../models/Favorite.js';
 
 export * from './User.js';
 export * from './Event.js';
@@ -17,3 +20,6 @@ export * from './Payment.js';
 export * from './Waitlist.js';
 export * from './SurveyResponse.js';
 export * from './ActivityLog.js';
+export * from './RefreshToken.js';
+export * from './LoginAttempt.js';
+export * from './Favorite.js';
