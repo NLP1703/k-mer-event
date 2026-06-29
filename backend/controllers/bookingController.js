@@ -1,13 +1,10 @@
 import { validationResult } from 'express-validator';
 import PDFDocument from 'pdfkit';
-import QRCode from 'qrcode';
 import { Booking } from '../models/Booking.js';
 import { Event } from '../models/Event.js';
 import { User } from '../models/User.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
-import { Op } from 'sequelize';
-import { sendBookingConfirmation } from '../services/emailService.js';
 import { createBookingNumber, createQrCodeForBooking, deductStock } from '../services/bookingService.js';
 
 export const createBooking = async (req, res, next) => {

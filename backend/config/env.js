@@ -63,8 +63,10 @@ export const config = {
   cookie: {
     name: 'kmer_rt',
     domain: process.env.COOKIE_DOMAIN || undefined,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    // Defaults are strict in production (Secure + SameSite=None for HTTPS behind
+    // a proxy) but can be overridden for local HTTP (e.g. docker-compose).
+    secure: process.env.COOKIE_SECURE != null ? process.env.COOKIE_SECURE === 'true' : isProd,
+    sameSite: process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'lax'),
   },
 
   // Database

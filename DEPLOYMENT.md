@@ -111,13 +111,25 @@ SMTP_USER=contact@TON_DOMAINE.com
 SMTP_PASS=MOT_DE_PASSE_EMAIL
 ```
 
+> 🔐 **JWT_SECRET obligatoire.** Le serveur **refuse de démarrer** sans secret fort
+> (aucun fallback codé en dur). Génère-le :
+> ```bash
+> npm run generate:secret -- --write   # écrit JWT_SECRET + JWT_REFRESH_SECRET dans .env
+> ```
+
 Initialiser le schéma + appliquer toutes les migrations :
 ```bash
-npm run migrate              # crée les tables + seed admin/démo
+npm run migrate              # crée les tables + seed admin/démo (inclut refresh_tokens,
+                             # login_attempts, favorites, events.organizer_id)
 npm run migrate:checkin
 npm run migrate:photo-urls
 npm run migrate:waitlist
 npm run migrate:geo
+npm run migrate:auth          # tables refresh_tokens + login_attempts
+npm run migrate:favorites     # table favorites
+npm run migrate:organizer-id  # FK events.organizer_id + backfill
+npm run migrate:money-decimal # montants -> DECIMAL(10,2)
+npm run migrate:search-index  # index de recherche
 ```
 
 Démarrer le backend avec PM2 (depuis le dossier `backend/` pour que `uploads/` soit résolu correctement) :
@@ -216,11 +228,14 @@ Certbot configure le HTTPS et le renouvellement automatique. Le site est en lign
 cd /var/www/kmer-event
 git pull
 
-# backend
-cd backend && npm install --omit=dev && pm2 restart kmer-api
-
-# si nouvelles migrations :
-# npm run migrate:<nom>
+# backend — IMPORTANT : appliquer les migrations AVANT de redémarrer
+cd backend && npm install --omit=dev
+npm run migrate:auth
+npm run migrate:favorites
+npm run migrate:organizer-id
+npm run migrate:money-decimal
+npm run migrate:search-index
+pm2 restart kmer-api
 
 # frontend
 cd ../frontend && npm install && npm run build
