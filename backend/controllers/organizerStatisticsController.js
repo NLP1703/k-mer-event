@@ -2,14 +2,17 @@ import { Op, fn, col, literal } from 'sequelize';
 import { Event } from '../models/Event.js';
 import { Booking } from '../models/Booking.js';
 
-// Ownership filter for the current organizer.
-// `organizer_id` is currently VIRTUAL in the schema, so we fall back to the
-// string column `organizer` matching the user's name (the same pattern used
-// by middlewares/auth.js and organizerEventsController.js).
+// Ownership filter for the current organizer. Prefers the referential
+// organizer_id (FK to users.id, now a real column) and keeps the legacy string
+// match as a fallback for any rows not yet backfilled.
 const buildOwnerWhere = (user) => {
+  const userId = user?.id;
   const userName = (user?.name ?? '').toString().trim();
-  if (!userName) return null;
-  return { organizer: userName };
+  if (!userId && !userName) return null;
+  const or = [];
+  if (userId) or.push({ organizer_id: userId });
+  if (userName) or.push({ organizer: userName });
+  return { [Op.or]: or };
 };
 
 const requireOrganizer = (req, res) => {
