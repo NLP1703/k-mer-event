@@ -40,12 +40,30 @@ const constraintExists = async (table, name) => {
   return Number(rows?.[0]?.cnt || 0) > 0;
 };
 
+// A FK requires the referencing and referenced columns to share an identical
+// type AND collation. Sequelize's UUID maps to CHAR(36) but the collation can
+// differ between tables (e.g. users.id is utf8mb4_bin), so we read users.id's
+// definition and mirror it onto organizer_id before adding the constraint.
+const usersIdDef = async () => {
+  const [rows] = await sequelize.query(
+    `SELECT CHARACTER_SET_NAME AS charset, COLLATION_NAME AS collation
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'id'`,
+  );
+  return rows?.[0] || { charset: 'utf8mb4', collation: 'utf8mb4_bin' };
+};
+
 const up = async () => {
+  const { charset, collation } = await usersIdDef();
+  const colType = `CHAR(36) CHARACTER SET ${charset} COLLATE ${collation}`;
+
   if (!(await columnExists(TABLE, 'organizer_id'))) {
-    await sequelize.query('ALTER TABLE `events` ADD COLUMN `organizer_id` CHAR(36) NULL;');
+    await sequelize.query(`ALTER TABLE \`events\` ADD COLUMN \`organizer_id\` ${colType} NULL;`);
     console.log('✅ Added events.organizer_id');
   } else {
-    console.log('ℹ️  events.organizer_id already exists');
+    // Ensure the existing column matches users.id so the FK can be created.
+    await sequelize.query(`ALTER TABLE \`events\` MODIFY COLUMN \`organizer_id\` ${colType} NULL;`);
+    console.log('ℹ️  events.organizer_id aligned to users.id collation');
   }
 
   // Backfill from the legacy organizer name.
