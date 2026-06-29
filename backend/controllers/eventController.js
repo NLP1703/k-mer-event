@@ -1,5 +1,6 @@
 import { validationResult } from 'express-validator';
 import { Op } from 'sequelize';
+import Sequelize from 'sequelize';
 import { Event } from '../models/Event.js';
 import { Booking } from '../models/Booking.js';
 import { User } from '../models/User.js';
@@ -57,100 +58,115 @@ const normalizePhotoUrls = (raw) => {
   return [];
 };
 
+// Whitelisted sortable columns -> guards against SQL injection via ?sort=.
+const SORTABLE = {
+  date: 'start_date',
+  start_date: 'start_date',
+  price: 'ticket_price',
+  created: 'created_at',
+  title: 'title',
+};
+
 export const listEvents = async (req, res, next) => {
   try {
-    const { search, city, category, status, admin, organizer_id } = req.query;
-    const filters = { where: {} };
+    const { search, city, category, status, admin, organizer_id, sort, order } = req.query;
 
-    // Toujours coerce la valeur en string pour éviter tout crash si query.search est vide/undefined
-    const normalizedSearch = ((search ?? '') + '').trim();
+    // Pagination: page >= 1, limit in [1, 100], default 12.
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 12, 1), 100);
+    const offset = (page - 1) * limit;
 
-    // Logs pour diagnostiquer les 500 côté backend
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[listEvents] query=', { search, city, category, status, admin, originalUrl: req.originalUrl });
-      console.log('[listEvents] normalizedSearch=', normalizedSearch);
-    }
+    const where = {};
+    const normalizedSearch = `${search ?? ''}`.trim();
 
-
+    // Multi-column search (title, description, venue, city). Backed by indexes
+    // (scripts/migrate-search-index.js) and ready to swap for FULLTEXT/Elastic.
     if (normalizedSearch) {
-      // Utilise la colonne exacte du model Sequelize
-      filters.where.title = { [Op.like]: `%${normalizedSearch}%` };
+      const like = { [Op.like]: `%${normalizedSearch}%` };
+      where[Op.or] = [
+        { title: like },
+        { description: like },
+        { venue: like },
+        { city: like },
+      ];
     }
 
+    if (typeof city === 'string' && city.trim()) where.city = city.trim();
+    if (typeof category === 'string' && category.trim()) where.category = category.trim();
 
-    if (typeof city === 'string' && city.trim()) filters.where.city = city.trim();
-    if (typeof category === 'string' && category.trim()) filters.where.category = category.trim();
-    // Public view: only show published by default (admin can override with ?status=...)
-    if (admin === 'true') {
-      if (typeof status === 'string' && status.trim()) filters.where.status = status.trim();
+    const isAdmin = admin === 'true' && req.user?.role === 'admin';
+    if (isAdmin) {
+      if (typeof status === 'string' && status.trim()) where.status = status.trim();
     } else {
-      filters.where.status = 'published';
+      // Public view: only published events are ever listed.
+      where.status = 'published';
     }
-    // organizer_id filtering removed because the current DB schema may not include this column.
-    // If/when the column is added, we can re-enable this filter.
 
-    const events = await Event.findAll({
+    // Organizers can scope to their own events (now a real FK column).
+    if (typeof organizer_id === 'string' && organizer_id.trim()) {
+      where.organizer_id = organizer_id.trim();
+    }
 
-      ...filters,
-      order: [['start_date', 'ASC']],
-      limit: 40,
+    const sortCol = SORTABLE[(`${sort ?? ''}`).toLowerCase()] || 'start_date';
+    const sortDir = (`${order ?? ''}`).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+    const { rows, count } = await Event.findAndCountAll({
+      where,
+      order: [[sortCol, sortDir]],
+      limit,
+      offset,
     });
 
-    // Admin augmentation: sales stats per event
-    if (admin === 'true') {
-      try {
-        const confirmedBookings = await Booking.findAll({
-          where: { status: 'confirmed' },
-          include: [{ model: User, as: 'user', attributes: ['name'] }],
-        });
+    const totalPages = Math.max(Math.ceil(count / limit), 1);
+    const pagination = {
+      page,
+      limit,
+      total: count,
+      totalPages,
+      next: page < totalPages ? page + 1 : null,
+      previous: page > 1 ? page - 1 : null,
+    };
 
-        const salesByEvent = confirmedBookings.reduce((map, booking) => {
-          const eventId = booking.event_id;
-          const buyerName = booking.user?.name || booking.customer_name || 'Utilisateur inconnu';
+    let events = rows;
 
-          if (!map[eventId]) {
-            map[eventId] = { sold_tickets: 0, buyers: new Set() };
-          }
+    // Admin augmentation: sales stats per event. Computed with TWO grouped
+    // queries (sold tickets + distinct buyers) restricted to the current page's
+    // event ids — no per-event N+1, no full-table in-memory reduce.
+    if (isAdmin && rows.length) {
+      const ids = rows.map((e) => e.id);
 
-          map[eventId].sold_tickets += booking.quantity;
-          if (buyerName) {
-            map[eventId].buyers.add(buyerName);
-          }
+      const soldRows = await Booking.findAll({
+        attributes: ['event_id', [Sequelize.fn('SUM', Sequelize.col('quantity')), 'sold']],
+        where: { status: 'confirmed', event_id: { [Op.in]: ids } },
+        group: ['event_id'],
+        raw: true,
+      });
+      const soldByEvent = Object.fromEntries(soldRows.map((r) => [r.event_id, Number(r.sold) || 0]));
 
-          return map;
-        }, {});
-
-        const enhancedEvents = events.map((event) => {
-          const plainEvent = event.get({ plain: true });
-          const stats = salesByEvent[plainEvent.id] || { sold_tickets: 0, buyers: new Set() };
-          return {
-            ...plainEvent,
-            sold_tickets: stats.sold_tickets,
-            buyers: Array.from(stats.buyers),
-          };
-        });
-
-        return res.json({ events: enhancedEvents });
-      } catch (adminError) {
-        console.error('[listEvents] admin augmentation failed (non-fatal)', {
-          url: req.originalUrl,
-          query: req.query,
-          errorName: adminError?.name,
-          message: adminError?.message,
-          stack: adminError?.stack,
-        });
-        // On continue sans stats admin
+      const buyerRows = await Booking.findAll({
+        attributes: ['event_id', 'customer_name'],
+        where: { status: 'confirmed', event_id: { [Op.in]: ids } },
+        include: [{ model: User, as: 'user', attributes: ['name'] }],
+      });
+      const buyersByEvent = {};
+      for (const b of buyerRows) {
+        const name = b.user?.name || b.customer_name || 'Utilisateur inconnu';
+        (buyersByEvent[b.event_id] ||= new Set()).add(name);
       }
+
+      events = rows.map((event) => ({
+        ...event.get({ plain: true }),
+        sold_tickets: soldByEvent[event.id] || 0,
+        buyers: Array.from(buyersByEvent[event.id] || []),
+      }));
     }
 
-    return res.json({ events });
+    return res.json({ events, pagination });
   } catch (error) {
     console.error('[listEvents] failed', {
       url: req.originalUrl,
-      query: req.query,
       errorName: error?.name,
       message: error?.message,
-      stack: error?.stack,
     });
     next(error);
   }

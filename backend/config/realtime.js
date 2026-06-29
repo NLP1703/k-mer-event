@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
+import { verifyAccessToken } from '../services/tokenService.js';
 
 let io = null;
 
@@ -75,8 +75,7 @@ export const initSocket = (server) => {
     const token = socket.handshake?.auth?.token;
     if (token) {
       try {
-        const secret = process.env.JWT_SECRET || 'kmersecret';
-        const payload = jwt.verify(token, secret);
+        const payload = verifyAccessToken(token);
         socket.data.user = { id: payload?.id, role: payload?.role };
       } catch {
         // invalid/expired token -> treat as guest
@@ -113,8 +112,12 @@ export const initSocket = (server) => {
         });
       }
 
-      // Admins receive live presence updates.
+      // Admins receive live presence updates + a dedicated moderation channel
+      // (every event change, including private drafts/pending).
       if (user.role === 'admin') socket.join('admins');
+      // Organizers join a personal room so they — and only they — receive their
+      // own non-public (draft/pending) event updates.
+      if (user.role === 'organizer') socket.join(`org:${user.id}`);
       broadcastPresence();
     } else {
       guestCount += 1;
@@ -140,17 +143,34 @@ export const initSocket = (server) => {
 
 export const getIo = () => io;
 
-// Broadcast that an event was created/updated/deleted so every connected client
-// can refresh in real time. `type` is 'created' | 'updated' | 'deleted'.
+// Broadcast that an event was created/updated/deleted. Visibility rules:
+//   • published events  → broadcast to everyone (public data).
+//   • draft/pending      → only the owning organizer (org:<id>) and admins.
+//   • deletions          → minimal id-only notice to everyone (an id is not
+//                          sensitive and clients must drop the card regardless).
+// This prevents non-public (draft/pending) events from ever reaching
+// unauthorised clients over the realtime channel.
 export const emitEventsChanged = (type, eventOrId) => {
   if (!io) return;
   const plain = eventOrId?.get ? eventOrId.get({ plain: true }) : eventOrId;
   const eventId = plain?.id ?? null;
-  io.emit('events:changed', {
-    type,
-    eventId,
-    event: type === 'deleted' ? null : plain,
-  });
+
+  if (type === 'deleted') {
+    io.emit('events:changed', { type, eventId, event: null });
+    return;
+  }
+
+  const payload = { type, eventId, event: plain };
+
+  if (plain?.status === 'published') {
+    io.emit('events:changed', payload);
+    return;
+  }
+
+  // Private (draft/pending): restrict to admins + the owning organizer.
+  io.to('admins').emit('events:changed', payload);
+  const ownerId = plain?.organizer_id;
+  if (ownerId) io.to(`org:${ownerId}`).emit('events:changed', payload);
 };
 
 // Broadcast that a new survey response was recorded so the live admin dashboard

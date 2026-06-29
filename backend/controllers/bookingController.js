@@ -1,21 +1,11 @@
 import { validationResult } from 'express-validator';
 import PDFDocument from 'pdfkit';
-import QRCode from 'qrcode';
 import { Booking } from '../models/Booking.js';
 import { Event } from '../models/Event.js';
 import { User } from '../models/User.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
-import { Op, literal } from 'sequelize';
-import { sendBookingConfirmation } from '../services/emailService.js';
-
-
-const createBookingNumber = () => `KMER-${Date.now().toString().slice(-8)}`;
-
-const createQrCodeForBooking = async (bookingNumber, eventTitle, userId) => {
-  const qrPayload = JSON.stringify({ booking_number: bookingNumber, event: eventTitle, user_id: userId });
-  return await QRCode.toDataURL(qrPayload);
-};
+import { createBookingNumber, createQrCodeForBooking, deductStock } from '../services/bookingService.js';
 
 export const createBooking = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -95,19 +85,9 @@ export const checkoutCart = async (req, res, next) => {
       const booking_number = createBookingNumber();
       const qr_code_url = await createQrCodeForBooking(booking_number, event.title, req.user.id);
 
-      // Deduct stock immediately during checkout (atomic with transaction)
-      const dec = await Event.update(
-        { remaining_tickets: sequelize.literal('remaining_tickets - ' + item.quantity) },
-        {
-          where: {
-            id: event.id,
-            remaining_tickets: { [Op.gte]: item.quantity },
-          },
-          transaction: t,
-        }
-      );
-
-      if (!dec[0]) {
+      // Deduct stock immediately during checkout (atomic, shared service).
+      const ok = await deductStock(event.id, item.quantity, t);
+      if (!ok) {
         await t.rollback();
         return res.status(409).json({ message: `Not enough tickets available for ${event.title}` });
       }
@@ -280,27 +260,38 @@ const serializeForCheckin = (b) => ({
 // POST /api/bookings/checkin — validate a ticket at the entrance.
 // Body: { code } where code is a booking_number or the raw QR JSON payload.
 export const checkInBooking = async (req, res, next) => {
-  try {
-    const code = parseTicketCode(req.body?.code);
-    if (!code) return res.status(400).json({ status: 'invalid', message: 'Code de billet manquant' });
+  const code = parseTicketCode(req.body?.code);
+  if (!code) return res.status(400).json({ status: 'invalid', message: 'Code de billet manquant' });
 
+  // Transactional with a row lock so two simultaneous scans of the same ticket
+  // cannot both succeed: the first claims the row (SELECT ... FOR UPDATE), the
+  // second blocks until commit then sees checked_in_at already set.
+  const t = await sequelize.transaction();
+  try {
     const booking = await Booking.findOne({
       where: { booking_number: code },
       include: [
         { model: Event, as: 'event' },
         { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
       ],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
     });
 
     if (!booking) {
+      await t.rollback();
       return res.status(404).json({ status: 'invalid', message: 'Billet introuvable' });
     }
 
-    // Organizers can only validate tickets for their own events.
+    // Organizers can only validate tickets for their own events. Prefer the
+    // referential organizer_id; fall back to the legacy name match.
     if (req.user?.role === 'organizer') {
+      const ownsById = booking.event?.organizer_id && booking.event.organizer_id === req.user.id;
       const owner = (req.user?.name ?? '').toString().trim();
       const evOrganizer = (booking.event?.organizer ?? '').toString().trim();
-      if (!owner || owner !== evOrganizer) {
+      const ownsByName = owner && owner === evOrganizer;
+      if (!ownsById && !ownsByName) {
+        await t.rollback();
         return res
           .status(403)
           .json({ status: 'forbidden', message: 'Ce billet ne concerne pas vos événements' });
@@ -308,12 +299,14 @@ export const checkInBooking = async (req, res, next) => {
     }
 
     if (booking.status === 'cancelled') {
+      await t.rollback();
       return res
         .status(409)
         .json({ status: 'cancelled', message: 'Billet annulé', booking: serializeForCheckin(booking) });
     }
 
     if (booking.checked_in_at) {
+      await t.rollback();
       return res.status(409).json({
         status: 'already',
         message: 'Billet déjà validé',
@@ -322,12 +315,14 @@ export const checkInBooking = async (req, res, next) => {
     }
 
     booking.checked_in_at = new Date();
-    await booking.save();
+    await booking.save({ transaction: t });
+    await t.commit();
 
     return res
       .status(200)
       .json({ status: 'ok', message: 'Billet validé', booking: serializeForCheckin(booking) });
   } catch (error) {
+    try { await t.rollback(); } catch { /* already settled */ }
     next(error);
   }
 };

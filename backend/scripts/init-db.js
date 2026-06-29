@@ -104,6 +104,35 @@ const syncDatabase = async () => {
       console.warn('⚠️ Could not ensure ActivityLog table exists:', e?.message || e);
     }
 
+    // Ensure the authentication-hardening tables exist (refresh tokens, login
+    // attempts) and the server-side favourites table.
+    try {
+      const { RefreshToken } = await import('../models/RefreshToken.js');
+      const { LoginAttempt } = await import('../models/LoginAttempt.js');
+      const { Favorite } = await import('../models/Favorite.js');
+      await RefreshToken.sync({ alter: false, force: false });
+      await LoginAttempt.sync({ alter: false, force: false });
+      await Favorite.sync({ alter: false, force: false });
+      console.log('✅ Ensured refresh_tokens, login_attempts, favorites tables exist');
+    } catch (e) {
+      console.warn('⚠️ Could not ensure auth/favorites tables exist:', e?.message || e);
+    }
+
+    // Ensure events.organizer_id column exists (referential ownership). The FK
+    // and backfill are applied by scripts/migrate-organizer-id.js.
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'organizer_id'`,
+      );
+      if (Number(rows?.[0]?.cnt || 0) === 0) {
+        await sequelize.query('ALTER TABLE `events` ADD COLUMN `organizer_id` CHAR(36) NULL;');
+        console.log('✅ Added missing column events.organizer_id');
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not ensure events.organizer_id column:', e?.message || e);
+    }
+
     console.log('✅ Database schema synced (attempted) successfully');
 
     // Seed demo events:

@@ -12,12 +12,28 @@ export const Payment = sequelize.define(
     },
     provider: { type: DataTypes.STRING, allowNull: false, defaultValue: 'simulated' },
 
-    amount: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
+    amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      get() {
+        const v = this.getDataValue('amount');
+        return v == null ? 0 : parseFloat(v);
+      },
+    },
 
     currency: { type: DataTypes.STRING, allowNull: false, defaultValue: 'FCFA' },
 
+    // External provider reference (charge id, etc.) for future Stripe/PayPal/OM.
+    provider_ref: { type: DataTypes.STRING, allowNull: true },
+    // Free-form audit of status transitions (created/confirmed/refunded...).
+    meta: { type: DataTypes.TEXT, allowNull: true },
 
-  status: { type: DataTypes.ENUM('pending', 'confirmed', 'cancelled'), allowNull: false, defaultValue: 'pending' },
+  status: {
+    type: DataTypes.ENUM('pending', 'confirmed', 'cancelled', 'refunded'),
+    allowNull: false,
+    defaultValue: 'pending',
+  },
 }, {
   indexes: [
     { fields: ['booking_id'] },

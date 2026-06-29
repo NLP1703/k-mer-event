@@ -1,0 +1,60 @@
+# Full local stack: MySQL + API + Nginx-served frontend.
+#   docker compose up --build
+# Then open http://localhost:8080  (same-origin: the web container proxies
+# /api and /socket.io to the api container).
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: kmer_event
+      MYSQL_USER: kmer
+      MYSQL_PASSWORD: kmer_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - '3307:3306'
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-proot_password']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: kmer_event
+      DB_USER: kmer
+      DB_PASSWORD: kmer_password
+      # Override via a .env file or your shell. Falls back to a dev value so the
+      # demo stack boots; ALWAYS set a real secret outside local demos.
+      JWT_SECRET: ${JWT_SECRET:-please_change_me_64_hex_chars_minimum_for_production_use_only}
+      FRONTEND_URL: http://localhost:8080
+      # Local stack is plain HTTP -> relax cookie flags so refresh works.
+      COOKIE_SECURE: 'false'
+      COOKIE_SAMESITE: lax
+    volumes:
+      - uploads_data:/app/uploads
+    # Ensure schema + seed exist, then start the server.
+    command: sh -c "node scripts/init-db.js || true; node server.js"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+
+volumes:
+  db_data:
+  uploads_data:

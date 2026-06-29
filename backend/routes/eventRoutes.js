@@ -2,6 +2,7 @@ import express from 'express';
 import { body } from 'express-validator';
 import {
   authenticate,
+  optionalAuthenticate,
   authorize,
   authorizeEventOwner,
   restrictOrganizerToPending,
@@ -20,7 +21,7 @@ import {
 const router = express.Router();
 
 
-router.get('/', listEvents);
+router.get('/', optionalAuthenticate, listEvents);
 router.get('/:id', getEventById);
 
 router.post(

@@ -70,7 +70,17 @@ export const Event = sequelize.define('Event', {
 
   start_date: { type: DataTypes.DATE, allowNull: false },
   end_date: { type: DataTypes.DATE },
-  ticket_price: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
+  // Money stored as DECIMAL(10,2) for exact arithmetic. The getter returns a JS
+  // number (MySQL DECIMAL otherwise surfaces as a string).
+  ticket_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    get() {
+      const v = this.getDataValue('ticket_price');
+      return v == null ? 0 : parseFloat(v);
+    },
+  },
   ticket_quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   remaining_tickets: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   status: { type: DataTypes.ENUM('draft', 'pending', 'published', 'cancelled'), defaultValue: 'published' },
@@ -78,15 +88,8 @@ export const Event = sequelize.define('Event', {
 
   social_links: { type: DataTypes.TEXT, defaultValue: '{}' },
 
-  // organizer_id column may not exist in the current MySQL schema.
-  // Make it virtual so Sequelize won't SELECT/WHERE it when it's missing.
-  organizer_id: {
-    type: DataTypes.VIRTUAL(DataTypes.UUID),
-    get() {
-      return null;
-    },
-    set(_val) {
-      // no-op (column may be missing)
-    },
-  },
+  // Referential ownership: FK to users.id (see scripts/migrate-organizer-id.js,
+  // and init-db ensures the column). The legacy `organizer` string is retained
+  // for display/back-compat but ownership checks prefer organizer_id.
+  organizer_id: { type: DataTypes.UUID, allowNull: true },
 });

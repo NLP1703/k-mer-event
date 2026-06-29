@@ -1,15 +1,22 @@
-import dotenv from 'dotenv';
 import { Sequelize } from 'sequelize';
+import { config } from './env.js';
 
-dotenv.config();
-
-export const sequelize = new Sequelize(process.env.DB_NAME || 'kmer_event', process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', {
-  host: process.env.DB_HOST || '127.0.0.1',
-  dialect: 'mysql',
-  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  logging: false,
-  define: {
-    underscored: true,
-    timestamps: true,
-  },
-});
+// In the test environment we use an in-memory SQLite database so the suite runs
+// anywhere (CI included) with no MySQL server. Production/dev use MySQL.
+export const sequelize = config.isTest
+  ? new Sequelize({
+      dialect: 'sqlite',
+      storage: ':memory:',
+      logging: false,
+      define: { underscored: true, timestamps: true },
+    })
+  : new Sequelize(config.db.name, config.db.user, config.db.password, {
+      host: config.db.host,
+      dialect: 'mysql',
+      port: config.db.port,
+      logging: false,
+      define: {
+        underscored: true,
+        timestamps: true,
+      },
+    });

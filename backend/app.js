@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -20,6 +21,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import waitlistRoutes from './routes/waitlistRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
 import surveyRoutes from './routes/surveyRoutes.js';
+import favoritesRoutes from './routes/favoritesRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { trackActivity } from './middlewares/trackActivity.js';
 
@@ -93,12 +95,15 @@ const corsOptions = {
     'Accept',
     'X-Requested-With',
   ],
-  credentials: false,
+  // Required so the browser sends/receives the HttpOnly refresh-token cookie on
+  // cross-origin auth requests (dev: Vite :5173 -> API :4000).
+  credentials: true,
 };
 
 // Important: handle OPTIONS requests early so routers/auth don't block preflight
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
+app.use(cookieParser());
 
 
 app.use(morgan('dev'));
@@ -143,6 +148,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/survey', surveyRoutes);
+app.use('/api/favorites', favoritesRoutes);
 
 // Serve the public survey form and the admin results dashboard same-origin,
 // so the shareable link is simply  https://<host>/survey/  with no CORS or

@@ -5,6 +5,7 @@ import {
   addToCart as addToCartApi,
   removeCartItem as removeCartItemApi,
   clearCart as clearCartApi,
+  getAccessToken,
 } from '../services/api.js';
 
 const CartContext = createContext();
@@ -15,10 +16,9 @@ export const CartProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   const loadCart = useCallback(async () => {
-    const token = localStorage.getItem('kmer-token');
-
-    // Avoid protected `/cart` calls when not authenticated.
-    if (!user || !token) {
+    // Avoid protected `/cart` calls when not authenticated. The access token is
+    // held in memory (set after login / silent refresh).
+    if (!user || !getAccessToken()) {
       setItems([]);
       return;
     }
@@ -28,13 +28,12 @@ export const CartProvider = ({ children }) => {
       const response = await fetchCart();
       setItems(response.items || []);
     } catch (error) {
-      console.error(error);
-
-      // If token expired/invalid, backend will respond with 401.
+      // The API client auto-refreshes on 401; a remaining 401 means the session
+      // is gone — just drop the local cart (AuthContext clears the user).
       if (error?.response?.status === 401) {
-        localStorage.removeItem('kmer-token');
-        localStorage.removeItem('kmer-user');
         setItems([]);
+      } else {
+        console.error(error);
       }
     } finally {
       setLoading(false);
@@ -44,16 +43,6 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     loadCart();
   }, [loadCart]);
-
-
-
-  useEffect(() => {
-    // If token is removed (e.g., invalid/expired), ensure we don't keep a stale cart.
-    if (!localStorage.getItem('kmer-token')) {
-      setItems([]);
-      setLoading(false);
-    }
-  }, []);
 
 
   const addToCart = async (eventId, quantity) => {

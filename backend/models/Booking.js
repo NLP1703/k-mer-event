@@ -9,7 +9,15 @@ export const Booking = sequelize.define('Booking', {
   user_id: { type: DataTypes.UUID, allowNull: false },
   event_id: { type: DataTypes.UUID, allowNull: false },
   quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
-  total_price: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
+  total_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    get() {
+      const v = this.getDataValue('total_price');
+      return v == null ? 0 : parseFloat(v);
+    },
+  },
   status: { type: DataTypes.ENUM('pending', 'confirmed', 'cancelled'), defaultValue: 'confirmed' },
   qr_code_url: { type: DataTypes.TEXT },
   customer_name: { type: DataTypes.STRING },
@@ -29,3 +37,7 @@ Booking.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 // leaving every stat card and chart empty.
 Event.hasMany(Booking, { foreignKey: 'event_id', as: 'bookings' });
 User.hasMany(Booking, { foreignKey: 'user_id', as: 'bookings' });
+
+// Referential ownership of an event by an organizer (events.organizer_id).
+Event.belongsTo(User, { foreignKey: 'organizer_id', as: 'organizerUser' });
+User.hasMany(Event, { foreignKey: 'organizer_id', as: 'events' });
