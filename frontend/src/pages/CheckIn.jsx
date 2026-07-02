@@ -71,6 +71,14 @@ function CheckIn() {
 
   const startCamera = async () => {
     setCamError('');
+    // Browsers only expose the camera on a secure context (HTTPS or localhost).
+    // Over plain HTTP the camera API is unavailable, so tell the user why.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setCamError(
+        "La caméra nécessite une connexion sécurisée (HTTPS). Utilisez la saisie manuelle ci-dessous.",
+      );
+      return;
+    }
     try {
       const scanner = new Html5Qrcode(READER_ID);
       scannerRef.current = scanner;
