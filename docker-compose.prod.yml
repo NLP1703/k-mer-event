@@ -1,12 +1,12 @@
-# Production overrides for the VPS. Merge with the base file:
+# Production overrides for the VPS — HTTP on :8080, NO domain / NO HTTPS.
+# Merge with the base file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-# Every secret/URL below is read from a `.env` file that lives NEXT TO this
-# compose file on the VPS (never committed). The GitHub Actions deploy job
-# writes that `.env` from repository secrets before running compose.
+# Secrets/URLs are read from a `.env` file next to this compose file on the VPS
+# (never committed). Required keys: JWT_SECRET, DB_PASSWORD, DB_ROOT_PASSWORD.
 #
-# Required keys in .env:
-#   JWT_SECRET, DB_PASSWORD, DB_ROOT_PASSWORD, FRONTEND_URL
+# NOTE: the site is plain HTTP, so cookies must NOT be Secure (a Secure refresh
+# cookie is dropped over HTTP and login/refresh silently break).
 services:
   db:
     environment:
@@ -14,8 +14,9 @@ services:
       MYSQL_USER: ${DB_USER:-kmer}
       MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
-    # Do NOT expose MySQL to the public internet in production.
-    ports: []
+    # Do NOT expose MySQL to the public internet. !override REPLACES the base
+    # port mapping (an empty list alone would be concatenated, not reset).
+    ports: !override []
     restart: unless-stopped
 
   api:
@@ -25,18 +26,18 @@ services:
       DB_USER: ${DB_USER:-kmer}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      # Real public URL(s), comma-separated. Used for CORS + cookie config.
-      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
-      # Behind HTTPS in production -> secure cookies. SameSite=none allows the
-      # SPA and API to sit on different subdomains; use "lax" if same origin.
-      COOKIE_SECURE: 'true'
-      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      # Public base URL (IP:port, no domain). Used for CORS + email links.
+      FRONTEND_URL: ${FRONTEND_URL:-http://2.25.178.95:8080}
+      # Plain HTTP -> relax cookie flags so refresh works (same-origin => Lax).
+      COOKIE_SECURE: 'false'
+      COOKIE_SAMESITE: 'lax'
     restart: unless-stopped
 
   web:
-    # Bound to LOCALHOST only: the VPS's host Nginx terminates HTTPS and reverse-
-    # proxies to this port (see deploy/nginx-kmer.conf). Not publicly exposed, so
-    # no conflict with the existing host Nginx on :443/:80.
-    ports:
-      - '127.0.0.1:${WEB_PORT:-8081}:80'
+    # Public entry point: the web container's internal Nginx serves the SPA and
+    # proxies /api, /socket.io and /uploads to the api container. Overridable
+    # (WEB_PORT) so a cutover can test on a temp port before taking :8080.
+    # !override REPLACES the base port list (compose otherwise concatenates it).
+    ports: !override
+      - '${WEB_PORT:-8080}:80'
     restart: unless-stopped
