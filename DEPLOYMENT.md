@@ -1,5 +1,11 @@
 # Déploiement
 
+> **Deux méthodes existent :**
+> 1. **Docker + CI/CD automatique (recommandé)** — voir la section [« Déploiement Docker + CI/CD »](#déploiement-docker--cicd-automatique) plus bas. Chaque `git push` sur `main` reconstruit et redéploie tout seul.
+> 2. **Manuel PM2 + Nginx** — la procédure historique, décrite juste en dessous. Toujours valable si tu ne veux pas de Docker.
+
+---
+
 ## Architecture cible (Hostinger VPS)
 
 Un seul domaine, tout passe par **Nginx** (reverse proxy) — pas de souci CORS :
@@ -251,3 +257,123 @@ cd ../frontend && npm install && npm run build
 - Le port **4000 reste interne** (non ouvert dans le pare-feu) : tout passe par Nginx.
 - **Sauvegardes** : pense à sauvegarder la base (`mysqldump`) et le dossier `backend/uploads/` régulièrement.
 - **E-mails** : crée une boîte e-mail dans hPanel (ex. `contact@ton_domaine.com`) et utilise `smtp.hostinger.com` (port 587, STARTTLS).
+
+---
+
+## Déploiement Docker + CI/CD (automatique)
+
+Méthode recommandée. Un `git push` sur `main` déclenche GitHub Actions qui, **après** avoir passé les tests, se connecte en SSH au VPS, met le code à jour et reconstruit la stack Docker. Plus aucune commande manuelle au quotidien.
+
+## Architecture
+
+```
+  Internet ──HTTPS──> Nginx du VPS (443)         ← termine le TLS (Certbot)
+                         └── reverse proxy ──> 127.0.0.1:8081
+                                                   │
+                                        conteneur "web" (Nginx interne)
+                                                   ├── /            → SPA (build Vite)
+                                                   ├── /api         → conteneur "api" (:4000)
+                                                   ├── /socket.io   → conteneur "api" (WebSocket)
+                                                   └── /uploads      → conteneur "api"
+                                                          │
+                                              conteneur "api" (Node/Express)
+                                                          │
+                                              conteneur "db" (MySQL 8, volume persistant)
+```
+
+Le conteneur `web` n'écoute **que sur 127.0.0.1:8081** : il n'est pas exposé au public, c'est le Nginx du VPS qui gère le domaine et le HTTPS. MySQL n'est **jamais** exposé.
+
+## Fichiers concernés (dans le repo)
+
+| Fichier | Rôle |
+|---------|------|
+| `docker-compose.yml` | Stack de base (db + api + web) |
+| `docker-compose.prod.yml` | Surcharge prod : secrets via `.env`, cookies sécurisés, MySQL fermé, `web` sur 127.0.0.1 |
+| `backend/Dockerfile`, `frontend/Dockerfile` | Images de build |
+| `deploy/nginx-kmer.conf` | Config Nginx frontale du VPS (à installer sur le VPS) |
+| `.github/workflows/ci.yml` | Job `deploy` : lance le déploiement sur push `main` |
+
+## 1. Préparer le VPS (une seule fois)
+
+```bash
+ssh tontineadmin@2.25.178.95
+
+# Docker + plugin compose
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # se reconnecter ensuite
+
+# Cloner le repo à l'emplacement qui servira de VPS_APP_DIR
+mkdir -p ~/K-MER-EVENT && cd ~/K-MER-EVENT
+git clone https://github.com/NLP1703/k-mer-event.git .
+```
+
+### Migration depuis l'ancienne stack PM2/Nginx
+
+Si l'ancienne version tourne déjà (PM2 + Nginx statique), libérer les ressources **avant** le premier déploiement Docker :
+
+```bash
+pm2 delete kmer-api && pm2 save     # arrêter l'ancienne API Node
+# Le conteneur web est sur 127.0.0.1:8081, donc AUCUN conflit de port avec Nginx.
+# On garde le Nginx du VPS : on remplace juste son site par le reverse proxy.
+```
+
+> ⚠️ **Données MySQL** : la stack Docker crée sa **propre** base dans un volume Docker (`db_data`). Si tu as déjà des données dans le MySQL installé sur le VPS, exporte-les puis réimporte-les dans le conteneur :
+> ```bash
+> mysqldump -u kmer -p kmer_event > dump.sql           # ancienne base
+> docker compose exec -T db mysql -u kmer -pMDP kmer_event < dump.sql   # après le 1er up
+> ```
+
+### Installer la config Nginx frontale
+
+```bash
+cd ~/K-MER-EVENT
+sudo cp deploy/nginx-kmer.conf /etc/nginx/sites-available/kmer
+# éditer le fichier pour remplacer your-domain.com par le vrai domaine
+sudo ln -sf /etc/nginx/sites-available/kmer /etc/nginx/sites-enabled/kmer
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d TON_DOMAINE.com     # HTTPS gratuit + renouvellement auto
+```
+
+## 2. Configurer les secrets GitHub (une seule fois)
+
+`Settings → Secrets and variables → Actions → New repository secret` :
+
+| Secret | Valeur |
+|--------|--------|
+| `VPS_HOST` | `2.25.178.95` |
+| `VPS_USER` | `tontineadmin` |
+| `VPS_SSH_KEY` | contenu **complet** de la clé privée `tontine_vps` |
+| `VPS_APP_DIR` | `/home/tontineadmin/K-MER-EVENT` (là où le repo est cloné) |
+| `JWT_SECRET` | secret fort (`openssl rand -hex 32`) |
+| `DB_PASSWORD` | mot de passe MySQL applicatif |
+| `DB_ROOT_PASSWORD` | mot de passe root MySQL |
+| `FRONTEND_URL` | URL publique réelle, ex. `https://TON_DOMAINE.com` |
+| `COOKIE_SAMESITE` | *(optionnel)* `lax` par défaut |
+| `WEB_PORT` | *(optionnel)* `8081` par défaut |
+
+## 3. Déployer
+
+Il suffit de pousser sur `main` :
+
+```bash
+git push origin main
+```
+
+GitHub Actions : `backend` (lint + tests) + `frontend` (build) → puis `deploy` qui, en SSH, fait `git reset --hard` sur le commit, régénère le `.env`, puis :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+```
+
+Suivre le déroulé dans l'onglet **Actions** de GitHub. Sur le VPS, vérifier :
+
+```bash
+docker compose ps          # les 3 services "healthy"
+docker compose logs -f api
+```
+
+## Déclenchement manuel / rollback
+
+- **Rejouer un déploiement** : relancer le workflow depuis l'onglet Actions, ou repousser un commit.
+- **Rollback** : `git revert` du commit fautif puis `git push` (le déploiement rejoue automatiquement l'état précédent), ou sur le VPS `git reset --hard <ancien_sha> && docker compose ... up -d --build`.

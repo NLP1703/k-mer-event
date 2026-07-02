@@ -1,0 +1,42 @@
+# Production overrides for the VPS. Merge with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Every secret/URL below is read from a `.env` file that lives NEXT TO this
+# compose file on the VPS (never committed). The GitHub Actions deploy job
+# writes that `.env` from repository secrets before running compose.
+#
+# Required keys in .env:
+#   JWT_SECRET, DB_PASSWORD, DB_ROOT_PASSWORD, FRONTEND_URL
+services:
+  db:
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-kmer_event}
+      MYSQL_USER: ${DB_USER:-kmer}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+    # Do NOT expose MySQL to the public internet in production.
+    ports: []
+    restart: unless-stopped
+
+  api:
+    environment:
+      NODE_ENV: production
+      DB_NAME: ${DB_NAME:-kmer_event}
+      DB_USER: ${DB_USER:-kmer}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      # Real public URL(s), comma-separated. Used for CORS + cookie config.
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      # Behind HTTPS in production -> secure cookies. SameSite=none allows the
+      # SPA and API to sit on different subdomains; use "lax" if same origin.
+      COOKIE_SECURE: 'true'
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+    restart: unless-stopped
+
+  web:
+    # Bound to LOCALHOST only: the VPS's host Nginx terminates HTTPS and reverse-
+    # proxies to this port (see deploy/nginx-kmer.conf). Not publicly exposed, so
+    # no conflict with the existing host Nginx on :443/:80.
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8081}:80'
+    restart: unless-stopped
