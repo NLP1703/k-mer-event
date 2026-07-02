@@ -55,7 +55,19 @@ jobs:
     needs: [backend, frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
+      # Skip gracefully (no red X) until the VPS secrets are configured.
+      - name: Check deploy secrets are configured
+        id: gate
+        run: |
+          if [ -n "${{ secrets.VPS_HOST }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VPS_HOST secret not set — skipping deploy. Run deploy/set-github-secrets.sh to enable."
+          fi
+
       - name: Deploy over SSH (git pull + docker compose)
+        if: steps.gate.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
