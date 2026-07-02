@@ -314,6 +314,18 @@ export const checkInBooking = async (req, res, next) => {
       });
     }
 
+    // Reject tickets whose event has already started (expired) — same rule as
+    // the PDF download guard. A never-used ticket for a past event is not valid.
+    const eventStart = booking.event?.start_date ? new Date(booking.event.start_date) : null;
+    if (eventStart && Number.isFinite(eventStart.getTime()) && eventStart.getTime() < Date.now()) {
+      await t.rollback();
+      return res.status(409).json({
+        status: 'expired',
+        message: 'Billet expiré (événement passé)',
+        booking: serializeForCheckin(booking),
+      });
+    }
+
     booking.checked_in_at = new Date();
     await booking.save({ transaction: t });
     await t.commit();

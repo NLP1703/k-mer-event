@@ -10,6 +10,7 @@ const READER_ID = 'kmer-qr-reader';
 const STATUS_UI = {
   ok: { icon: CheckCircle2, tone: 'text-success', ring: 'border-success/40 bg-success/5', label: 'Billet validé' },
   already: { icon: AlertTriangle, tone: 'text-warm', ring: 'border-warm/40 bg-warm/5', label: 'Déjà validé' },
+  expired: { icon: XCircle, tone: 'text-danger', ring: 'border-danger/40 bg-danger/5', label: 'Billet expiré' },
   cancelled: { icon: XCircle, tone: 'text-danger', ring: 'border-danger/40 bg-danger/5', label: 'Billet annulé' },
   invalid: { icon: XCircle, tone: 'text-danger', ring: 'border-danger/40 bg-danger/5', label: 'Billet introuvable' },
   forbidden: { icon: XCircle, tone: 'text-danger', ring: 'border-danger/40 bg-danger/5', label: 'Non autorisé' },

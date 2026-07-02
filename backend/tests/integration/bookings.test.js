@@ -88,6 +88,22 @@ describe('check-in is transactional and single-use', () => {
     expect(second.body.status).toBe('already');
     expect(booking).toBeTruthy();
   });
+
+  it('rejects an unused ticket whose event has already passed', async () => {
+    const pastEvent = await Event.create({
+      title: 'Past Show', description: 'd', category: 'music', venue: 'V', city: 'Douala',
+      organizer: 'Admin', start_date: new Date(Date.now() - 86400000),
+      ticket_price: 5000, ticket_quantity: 10, remaining_tickets: 10, status: 'published',
+    });
+    await Booking.create({
+      booking_number: 'KMER-EXPIRED', user_id: (await User.findOne({ where: { email: 'b@k.test' } })).id,
+      event_id: pastEvent.id, quantity: 1, total_price: 5000, status: 'confirmed',
+    });
+
+    const res = await request(app).post('/api/bookings/checkin').set(authHeader(adminToken)).send({ code: 'KMER-EXPIRED' });
+    expect(res.status).toBe(409);
+    expect(res.body.status).toBe('expired');
+  });
 });
 
 describe('favorites CRUD + sync', () => {
