@@ -168,6 +168,18 @@ export const updateProfilePicture = async (profilePictureUrl) => {
   return response.data;
 };
 
+// Update own profile fields (name, telephone, email).
+export const updateMyProfile = async (payload) => {
+  const response = await api.put('/users/me', payload);
+  return response.data;
+};
+
+// Permanently delete own account (soft-delete server-side + session revoke).
+export const deleteMyAccount = async () => {
+  const response = await api.delete('/users/me');
+  return response.data;
+};
+
 // Organizer statistics
 export const fetchOrganizerStatistics = async () => {
   const response = await api.get('/organizer/statistics');

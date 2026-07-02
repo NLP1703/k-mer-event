@@ -73,8 +73,14 @@ export const AuthProvider = ({ children }) => {
     reconnectSocket();
   };
 
+  // Merge fresh fields (name, email, profile_picture…) into the cached user so
+  // the UI (navbar avatar/name) reflects self-service profile edits instantly.
+  const updateUser = (partial) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, bootstrapping }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser, bootstrapping }}>
       {children}
     </AuthContext.Provider>
   );

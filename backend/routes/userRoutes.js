@@ -5,12 +5,42 @@ import {
   changePassword,
   updateProfilePicture,
   getMyProfile,
+  updateMyProfile,
+  deleteMyAccount,
 } from '../controllers/userController.js';
 
 const router = express.Router();
 
 // Returns the current user with persistent fields (profile_picture, etc.).
 router.get('/me', authenticate, getMyProfile);
+
+// Update own profile fields (name, telephone, email).
+router.put(
+  '/me',
+  authenticate,
+  [
+    body('name')
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 255 })
+      .withMessage('Nom invalide (1 à 255 caractères)'),
+    body('email')
+      .optional()
+      .isEmail()
+      .withMessage('Email invalide')
+      .normalizeEmail(),
+    body('telephone')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 30 })
+      .withMessage('Téléphone invalide (max 30 caractères)'),
+  ],
+  updateMyProfile,
+);
+
+// Permanently delete (soft-delete) own account.
+router.delete('/me', authenticate, deleteMyAccount);
 
 router.put(
   '/change-password',

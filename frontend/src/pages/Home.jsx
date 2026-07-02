@@ -16,6 +16,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { fetchEvents } from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { socket } from '../lib/socket.js';
 import EventCard, { EventCardSkeleton } from '../components/EventCard.jsx';
 import { Button, Input, Card, Badge, Select } from '../components/ui';
@@ -249,6 +250,7 @@ function Testimonials() {
 }
 
 function CallToAction() {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden border rounded-3xl border-border bg-bg-elevated">
       <div
@@ -264,13 +266,22 @@ function CallToAction() {
           Prêt à vivre votre prochain événement ?
         </h2>
         <p className="max-w-xl text-base text-muted">
-          Inscrivez-vous gratuitement et recevez vos billets en quelques clics.
+          {user
+            ? 'Parcourez les événements et recevez vos billets en quelques clics.'
+            : 'Inscrivez-vous gratuitement et recevez vos billets en quelques clics.'}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button variant="primary" size="lg" to="/register">
-            Créer un compte
-          </Button>
-          <Button variant="secondary" size="lg" as="a" href="#events">
+          {!user && (
+            <Button variant="primary" size="lg" to="/register">
+              Créer un compte
+            </Button>
+          )}
+          <Button
+            variant={user ? 'primary' : 'secondary'}
+            size="lg"
+            as="a"
+            href="#events"
+          >
             Explorer maintenant
           </Button>
         </div>

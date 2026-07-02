@@ -14,10 +14,11 @@ const fileUrl = (req, filename) => `${req.protocol}://${req.get('host')}/uploads
 
 // POST /api/uploads — accepts one or many image files under the field "files".
 // Returns { urls: [...], url: <first> }.
+// Any authenticated user may upload images (needed for their profile picture);
+// event media authorisation is enforced separately on the event routes.
 router.post(
   '/',
   authenticate,
-  authorize('admin', 'organizer'),
   (req, res) => {
     uploadImages.array('files', 10)(req, res, (err) => {
       if (err) {
@@ -58,7 +59,7 @@ router.post(
 // DELETE /api/uploads — remove a previously uploaded file from disk.
 // Body: { url } (absolute URL or "/uploads/<file>"). Only files inside the
 // uploads directory can be deleted (path traversal is stripped via basename).
-router.delete('/', authenticate, authorize('admin', 'organizer'), async (req, res) => {
+router.delete('/', authenticate, async (req, res) => {
   const raw = req.body?.url ? String(req.body.url) : '';
   const afterMarker = raw.includes('/uploads/') ? raw.split('/uploads/')[1] : raw;
   let filename = '';

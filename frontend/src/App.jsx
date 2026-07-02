@@ -27,8 +27,8 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="event/:id" element={<EventDetails />} />
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
+        <Route path="login" element={user ? <Navigate to="/" /> : <Login />} />
+        <Route path="register" element={user ? <Navigate to="/" /> : <Register />} />
         <Route path="cart" element={<Cart />} />
         <Route path="checkout" element={user ? <Checkout /> : <Navigate to="/login" />} />
         <Route path="success" element={<Success />} />
