@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { fetchEvents, createEvent, deleteEvent, updateEvent } from '../services/api.js';
+import {
+  fetchEvents,
+  createEvent,
+  deleteEvent,
+  updateEvent,
+  fetchOrganizerEventBookings,
+} from '../services/api.js';
 import ImageUploader from '../components/ImageUploader.jsx';
 import VideoUploader from '../components/VideoUploader.jsx';
 import LocationPicker from '../components/LocationPicker.jsx';
@@ -32,6 +38,11 @@ function OrganizerEvents() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [editMessage, setEditMessage] = useState('');
+  // Attendee list state, keyed by the currently expanded event id.
+  const [attendeesId, setAttendeesId] = useState(null);
+  const [attendees, setAttendees] = useState(null);
+  const [attendeesLoading, setAttendeesLoading] = useState(false);
+  const [attendeesError, setAttendeesError] = useState('');
 
   const loadEvents = async () => {
     // Ownership is enforced server-side by authorizeEventOwner on update/delete.
@@ -112,6 +123,28 @@ function OrganizerEvents() {
     setEditingId(null);
     setEditForm(null);
     setEditMessage('');
+  };
+
+  const toggleAttendees = async (eventId) => {
+    // Second click on the same event collapses the panel.
+    if (attendeesId === eventId) {
+      setAttendeesId(null);
+      setAttendees(null);
+      setAttendeesError('');
+      return;
+    }
+    setAttendeesId(eventId);
+    setAttendees(null);
+    setAttendeesError('');
+    setAttendeesLoading(true);
+    try {
+      const data = await fetchOrganizerEventBookings(eventId);
+      setAttendees(data);
+    } catch (err) {
+      setAttendeesError(err.response?.data?.message || 'Impossible de charger les participants');
+    } finally {
+      setAttendeesLoading(false);
+    }
   };
 
   return (
@@ -232,7 +265,10 @@ function OrganizerEvents() {
                         {eventItem.city} · {eventItem.start_date ? new Date(eventItem.start_date).toLocaleDateString() : '—'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button onClick={() => toggleAttendees(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-primary hover:bg-primary-hover">
+                        {attendeesId === eventItem.id ? 'Masquer les participants' : 'Participants'}
+                      </button>
                       <button onClick={() => startEdit(eventItem)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400">
                         Modifier
                       </button>
@@ -256,6 +292,73 @@ function OrganizerEvents() {
                       <p className="mt-2 text-lg font-semibold text-fg">{eventItem.ticket_quantity}</p>
                     </div>
                   </div>
+
+                  {attendeesId === eventItem.id ? (
+                    <div className="p-6 mt-6 space-y-4 border rounded-3xl border-border bg-bg-elevated">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h4 className="text-lg font-semibold text-fg">Participants (billets vendus)</h4>
+                        {attendees ? (
+                          <p className="text-sm text-muted">
+                            {attendees.count} réservation{attendees.count > 1 ? 's' : ''} ·{' '}
+                            {attendees.total_tickets} place{attendees.total_tickets > 1 ? 's' : ''}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-subtle">
+                        Comparez le nom, l’ID et le n° de billet ci-dessous avec ceux affichés à l’écran lors du scan du QR code.
+                      </p>
+
+                      {attendeesLoading ? (
+                        <p className="text-sm text-muted">Chargement…</p>
+                      ) : attendeesError ? (
+                        <p className="text-sm text-rose-500">{attendeesError}</p>
+                      ) : attendees && attendees.bookings.length ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left border-collapse">
+                            <thead>
+                              <tr className="text-xs uppercase tracking-wider text-subtle">
+                                <th className="py-2 pr-4 font-medium">Nom</th>
+                                <th className="py-2 pr-4 font-medium">ID unique</th>
+                                <th className="py-2 pr-4 font-medium">N° de billet</th>
+                                <th className="py-2 pr-4 font-medium">Places</th>
+                                <th className="py-2 pr-4 font-medium">Entrée</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {attendees.bookings.map((b) => (
+                                <tr key={b.id} className="align-top">
+                                  <td className="py-2.5 pr-4 font-medium text-fg">
+                                    {b.attendee.name}
+                                    {b.attendee.email ? (
+                                      <span className="block text-xs font-normal text-subtle">{b.attendee.email}</span>
+                                    ) : null}
+                                  </td>
+                                  <td className="py-2.5 pr-4 font-mono text-xs text-muted break-all">
+                                    {b.attendee.user_id || '—'}
+                                  </td>
+                                  <td className="py-2.5 pr-4 font-mono text-xs text-fg break-all">{b.booking_number}</td>
+                                  <td className="py-2.5 pr-4 text-muted">{b.quantity}</td>
+                                  <td className="py-2.5 pr-4">
+                                    {b.status === 'cancelled' ? (
+                                      <span className="text-rose-500">Annulé</span>
+                                    ) : b.checked_in ? (
+                                      <span className="text-emerald-500">
+                                        Validé{b.checked_in_at ? ` · ${new Date(b.checked_in_at).toLocaleString('fr-FR')}` : ''}
+                                      </span>
+                                    ) : (
+                                      <span className="text-subtle">Pas encore</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted">Aucun billet vendu pour le moment.</p>
+                      )}
+                    </div>
+                  ) : null}
 
                   {editingId === eventItem.id && editForm ? (
                     <div className="p-6 mt-6 space-y-4 border rounded-3xl border-border bg-bg-elevated">

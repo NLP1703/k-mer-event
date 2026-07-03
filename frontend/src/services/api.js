@@ -191,6 +191,14 @@ export const fetchOrganizerEventStatistics = async () => {
   return response.data;
 };
 
+// Attendee list for one of the organizer's own events: who bought tickets,
+// their unique user id / name and booking number, plus the check-in state.
+// Lets the organizer cross-check a scanned QR against the buyer's identity.
+export const fetchOrganizerEventBookings = async (eventId) => {
+  const response = await api.get(`/organizer/events/${eventId}/bookings`);
+  return response.data;
+};
+
 
 // Upload one or several image files to the backend (device file picker).
 // Uses a bare axios call so the browser sets the multipart boundary itself
