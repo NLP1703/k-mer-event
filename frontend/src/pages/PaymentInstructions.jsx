@@ -53,7 +53,7 @@ function PaymentInstructions() {
 
   if (!bookings.length) {
     return (
-      <div className="glass-card rounded-[36px] border border-border p-10 text-center">
+      <div className="bg-surface shadow-card rounded-2xl border border-border p-10 text-center">
         <h1 className="text-3xl font-semibold text-fg">Aucun paiement en attente</h1>
         <p className="mt-4 text-muted">
           Retrouvez vos billets et leur statut dans vos réservations.
@@ -76,7 +76,7 @@ function PaymentInstructions() {
       animate={{ opacity: 1, y: 0 }}
       className="mx-auto max-w-2xl space-y-6"
     >
-      <section className="glass-card rounded-[36px] border border-border p-8">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <p className="text-sm uppercase tracking-[0.25em] text-primary">Paiement Mobile Money</p>
         <h1 className="mt-3 text-3xl font-semibold text-fg">Finalisez votre paiement</h1>
         <p className="mt-4 text-muted">
@@ -94,7 +94,7 @@ function PaymentInstructions() {
           const fileCount = proof.urls?.length || 0;
           const canValidate = fileCount === 1 && proof.status !== 'saving' && proof.status !== 'saved';
           return (
-            <div key={booking.id} className="glass-card rounded-3xl border border-border p-6">
+            <div key={booking.id} className="bg-surface shadow-card rounded-2xl border border-border p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-fg">
@@ -189,7 +189,7 @@ function PaymentInstructions() {
         })}
       </div>
 
-      <section className="glass-card rounded-[36px] border border-border p-6">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-6">
         <div className="flex items-center justify-between text-fg">
           <span className="text-sm text-muted">Total à payer</span>
           <span className="text-xl font-semibold">FCFA {total.toFixed(0)}</span>

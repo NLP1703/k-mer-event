@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Users, CalendarCheck, Ticket, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { fetchEvents, fetchPresence, fetchWeeklyUsage, fetchDashboardStats } from '../services/api.js';
 import { socket } from '../lib/socket.js';
@@ -13,8 +14,10 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  Legend
+  Legend,
 } from 'recharts';
+import { Card } from '../components/ui';
+import { useChartTheme } from '../lib/chartTheme.js';
 
 // "Online since" -> compact relative label (e.g. "5 min", "2 h").
 const sinceLabel = (iso) => {
@@ -29,19 +32,41 @@ const sinceLabel = (iso) => {
 
 const roleBadge = (role) => {
   const map = {
-    admin: 'bg-primary/20 text-primary',
-    organizer: 'bg-accent/20 text-accent',
+    admin: 'bg-primary/15 text-primary',
+    organizer: 'bg-accent/15 text-accent',
     user: 'bg-surface-hover text-muted',
   };
   return map[role] || map.user;
 };
 
+const formatCurrency = (n) =>
+  `FCFA ${Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}`;
+
+function KpiTile({ icon: Icon, label, value, delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay }}
+    >
+      <Card className="p-6">
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary">
+          <Icon className="w-5 h-5" />
+        </span>
+        <p className="mt-4 text-xs font-bold tracking-wider uppercase text-subtle">{label}</p>
+        <p className="mt-1 font-display text-3xl font-bold text-fg tabular-nums">{value ?? '—'}</p>
+      </Card>
+    </motion.div>
+  );
+}
+
 function Dashboard() {
   const [stats, setStats] = useState(null);
-  const [events, setEvents] = useState([]);
+  const [, setEvents] = useState([]);
   const [presence, setPresence] = useState({ users: [], totalUsers: 0, guests: 0, totalOnline: 0 });
   const [usage, setUsage] = useState([]);
   const { user } = useAuth();
+  const chart = useChartTheme();
 
   useEffect(() => {
     // Uses the shared API client (in-memory access token + auto-refresh on 401).
@@ -58,236 +83,265 @@ function Dashboard() {
     return () => socket.off('presence:update', onPresence);
   }, []);
 
-  if (!user) return <p className="text-muted">Loading...</p>;
+  if (!user) return <p className="text-muted">Chargement…</p>;
+
+  const legendText = (value) => <span style={{ color: chart.ink, fontSize: 12 }}>{value}</span>;
+  const axisProps = {
+    stroke: chart.ink,
+    tick: { fill: chart.ink, fontSize: 12 },
+    axisLine: false,
+    tickLine: false,
+  };
 
   return (
     <div className="space-y-10">
-      <div className="glass-card rounded-[36px] border border-border p-10">
-        <h1 className="text-4xl font-semibold text-fg">Admin dashboard</h1>
-        <p className="mt-3 text-muted">Monitor bookings, revenue, and event performance at a glance.</p>
+      <div>
+        <p className="text-xs font-bold tracking-wider uppercase text-primary">Administration</p>
+        <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">
+          Tableau de bord
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          Réservations, revenus et performance des événements en un coup d’œil.
+        </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-4">
-        {[
-          { label: 'Users', value: stats?.totalUsers },
-          { label: 'Events', value: stats?.totalEvents },
-          { label: 'Bookings', value: stats?.totalBookings },
-          { label: 'Revenue', value: stats?.revenue ? `FCFA ${stats.revenue.toFixed(0)}` : 'FCFA 0' }
-        ].map((item) => (
-          <motion.div key={item.label} whileHover={{ y: -4 }} className="glass-card rounded-3xl border border-border p-6">
-            <p className="text-sm uppercase tracking-[0.25em] text-primary">{item.label}</p>
-            <p className="mt-4 text-4xl font-semibold text-fg">{item.value || '—'}</p>
-          </motion.div>
-        ))}
+      {/* KPI */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiTile icon={Users} label="Utilisateurs" value={stats?.totalUsers} />
+        <KpiTile icon={CalendarCheck} label="Événements" value={stats?.totalEvents} delay={0.05} />
+        <KpiTile icon={Ticket} label="Réservations" value={stats?.totalBookings} delay={0.1} />
+        <KpiTile
+          icon={Wallet}
+          label="Revenus"
+          value={stats?.revenue != null ? formatCurrency(stats.revenue) : undefined}
+          delay={0.15}
+        />
       </div>
 
       {/* En ligne maintenant (temps réel) + utilisation hebdomadaire */}
       <div className="grid gap-6 xl:grid-cols-3">
-        <section className="glass-card rounded-[36px] border border-border p-10 xl:col-span-1">
+        <Card as="section" className="p-6 xl:col-span-1">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-fg">En ligne</h2>
+            <h2 className="font-display text-lg font-semibold text-fg">En ligne</h2>
             <span className="flex items-center gap-2 text-sm text-muted">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+              <span className="relative flex w-2.5 h-2.5">
+                <span className="absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping bg-success" />
+                <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-success" />
               </span>
               {presence.totalOnline} en direct
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="rounded-3xl border border-border bg-surface p-4 text-center">
-              <p className="text-3xl font-semibold text-fg">{presence.totalUsers}</p>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted mt-1">Connectés</p>
+            <div className="p-4 text-center border rounded-xl border-border bg-bg">
+              <p className="font-display text-2xl font-bold text-fg tabular-nums">{presence.totalUsers}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">Connectés</p>
             </div>
-            <div className="rounded-3xl border border-border bg-surface p-4 text-center">
-              <p className="text-3xl font-semibold text-fg">{presence.guests}</p>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted mt-1">Invités</p>
+            <div className="p-4 text-center border rounded-xl border-border bg-bg">
+              <p className="font-display text-2xl font-bold text-fg tabular-nums">{presence.guests}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">Invités</p>
             </div>
           </div>
 
-          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          <div className="pr-1 space-y-2 overflow-y-auto max-h-80">
             {presence.users.length === 0 && (
               <p className="text-sm text-muted">Aucun utilisateur connecté pour le moment.</p>
             )}
             {presence.users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-border bg-surface p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary font-bold">
+              <div key={u.id} className="flex items-center justify-between p-3 border rounded-xl border-border bg-bg">
+                <div className="flex items-center min-w-0 gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-grad-brand text-white text-sm font-bold">
                     {(u.name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-fg">{u.name || 'Utilisateur'}</p>
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${roleBadge(u.role)}`}>
+                    <p className="text-sm font-semibold truncate text-fg">{u.name || 'Utilisateur'}</p>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${roleBadge(u.role)}`}>
                       {u.role}
                     </span>
                   </div>
                 </div>
-                <span className="shrink-0 text-xs text-muted">{sinceLabel(u.since)}</span>
+                <span className="text-xs shrink-0 text-muted">{sinceLabel(u.since)}</span>
               </div>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <section className="glass-card rounded-[36px] border border-border p-10 xl:col-span-2">
-          <h2 className="text-2xl font-semibold text-fg mb-2">Utilisation de la plateforme par semaine</h2>
-          <p className="text-sm text-muted mb-6">Utilisateurs actifs, réservations et nouvelles inscriptions par semaine.</p>
+        <Card as="section" className="p-6 xl:col-span-2">
+          <h2 className="font-display text-lg font-semibold text-fg">Utilisation par semaine</h2>
+          <p className="mt-1 mb-6 text-sm text-muted">
+            Utilisateurs actifs, réservations et nouvelles inscriptions.
+          </p>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={usage}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.28)" />
+              <BarChart data={usage} barGap={2}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={chart.grid} />
                 <XAxis
                   dataKey="weekStart"
-                  stroke="#94a3b8"
+                  {...axisProps}
                   tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                 />
-                <YAxis stroke="#94a3b8" allowDecimals={false} />
+                <YAxis {...axisProps} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#070b18',
-                    border: '1px solid rgba(148,163,184,0.28)',
-                    borderRadius: '8px'
-                  }}
+                  contentStyle={chart.tooltip}
+                  labelStyle={{ color: chart.tooltip.color, fontWeight: 600 }}
+                  itemStyle={{ color: chart.tooltip.color }}
+                  cursor={{ fill: chart.cursor }}
                   labelFormatter={(value) => `Semaine du ${new Date(value).toLocaleDateString('fr-FR')}`}
                 />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="activeUsers" name="Utilisateurs actifs" fill="#00ffd5" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="bookings" name="Réservations" fill="#ff6b6b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="newUsers" name="Inscriptions" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                <Legend formatter={legendText} />
+                <Bar dataKey="activeUsers" name="Utilisateurs actifs" fill={chart.series[0]} barSize={12} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="bookings" name="Réservations" fill={chart.series[1]} barSize={12} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="newUsers" name="Inscriptions" fill={chart.series[2]} barSize={12} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="glass-card rounded-[36px] border border-border p-10">
-          <h2 className="text-2xl font-semibold text-fg mb-6">Revenue Trend (Last 30 Days)</h2>
+        <Card as="section" className="p-6">
+          <h2 className="mb-6 font-display text-lg font-semibold text-fg">Revenus (30 derniers jours)</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats?.revenueData || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.28)" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={chart.grid} />
                 <XAxis
                   dataKey="date"
-                  stroke="#94a3b8"
-                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                  {...axisProps}
+                  tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                 />
-                <YAxis stroke="#94a3b8" />
+                <YAxis {...axisProps} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#070b18',
-                    border: '1px solid rgba(148,163,184,0.28)',
-                    borderRadius: '8px'
-                  }}
-                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                  formatter={(value) => [`FCFA ${value}`, 'Revenue']}
+                  contentStyle={chart.tooltip}
+                  labelStyle={{ color: chart.tooltip.color, fontWeight: 600 }}
+                  itemStyle={{ color: chart.tooltip.color }}
+                  cursor={{ stroke: chart.grid }}
+                  labelFormatter={(value) => new Date(value).toLocaleDateString('fr-FR')}
+                  formatter={(value) => [formatCurrency(value), 'Revenus']}
                 />
-                <Line type="monotone" dataKey="revenue" stroke="#00ffd5" strokeWidth={3} dot={{ fill: '#00ffd5', strokeWidth: 2, r: 4 }} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke={chart.primary}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5, fill: chart.primary, stroke: chart.tooltip.backgroundColor, strokeWidth: 2 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Card>
 
-        <section className="glass-card rounded-[36px] border border-border p-10">
-          <h2 className="text-2xl font-semibold text-fg mb-6">Bookings Trend (Last 30 Days)</h2>
+        <Card as="section" className="p-6">
+          <h2 className="mb-6 font-display text-lg font-semibold text-fg">Réservations (30 derniers jours)</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats?.bookingsData || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.28)" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={chart.grid} />
                 <XAxis
                   dataKey="date"
-                  stroke="#94a3b8"
-                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                  {...axisProps}
+                  tickFormatter={(value) => new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                 />
-                <YAxis stroke="#94a3b8" />
+                <YAxis {...axisProps} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#070b18',
-                    border: '1px solid rgba(148,163,184,0.28)',
-                    borderRadius: '8px'
-                  }}
-                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                  formatter={(value) => [value, 'Bookings']}
+                  contentStyle={chart.tooltip}
+                  labelStyle={{ color: chart.tooltip.color, fontWeight: 600 }}
+                  itemStyle={{ color: chart.tooltip.color }}
+                  cursor={{ fill: chart.cursor }}
+                  labelFormatter={(value) => new Date(value).toLocaleDateString('fr-FR')}
+                  formatter={(value) => [value, 'Réservations']}
                 />
-                <Bar dataKey="bookings" fill="#ff6b6b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="bookings" fill={chart.series[1]} barSize={12} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="glass-card rounded-[36px] border border-border p-10">
-          <h2 className="text-2xl font-semibold text-fg mb-6">Top Performing Events</h2>
-          <div className="space-y-4">
+        <Card as="section" className="p-6">
+          <h2 className="mb-5 font-display text-lg font-semibold text-fg">Meilleurs événements</h2>
+          <div className="space-y-3">
             {stats?.eventPerformance?.slice(0, 5).map((event, index) => (
-              <div key={event.id} className="flex items-center justify-between rounded-3xl border border-border bg-surface p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary font-bold">{index + 1}</div>
-                  <div>
-                    <h3 className="font-semibold text-fg">{event.title}</h3>
-                    <p className="text-sm text-muted">{event.booking_count} bookings</p>
+              <div key={event.id} className="flex items-center justify-between p-4 border rounded-xl border-border bg-bg">
+                <div className="flex items-center min-w-0 gap-4">
+                  <div className="flex items-center justify-center w-9 h-9 shrink-0 rounded-lg bg-primary/10 font-display font-bold text-primary">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold truncate text-fg">{event.title}</h3>
+                    <p className="text-xs text-muted">
+                      {event.booking_count} réservation{event.booking_count > 1 ? 's' : ''}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-primary">FCFA {(Number(event.total_revenue) || 0).toFixed(0)}</p>
-                </div>
+                <p className="font-display font-bold shrink-0 text-primary tabular-nums">
+                  {formatCurrency(event.total_revenue)}
+                </p>
               </div>
             ))}
           </div>
-        </section>
+        </Card>
 
-        <section className="glass-card rounded-[36px] border border-border p-10">
-          <h2 className="text-2xl font-semibold text-fg mb-6">Recent Bookings</h2>
-          <div className="space-y-4">
+        <Card as="section" className="p-6">
+          <h2 className="mb-5 font-display text-lg font-semibold text-fg">Dernières réservations</h2>
+          <div className="space-y-3">
             {stats?.recentBookings?.slice(0, 5).map((booking) => (
-              <div key={booking.id} className="rounded-3xl border border-border bg-surface p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-fg">{booking.booking_number}</h3>
-                    <p className="text-sm text-muted">{booking.event?.title}</p>
-                    <p className="text-xs text-subtle">{booking.user?.name} • {booking.customer_email}</p>
+              <div key={booking.id} className="p-4 border rounded-xl border-border bg-bg">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold truncate text-fg">{booking.booking_number}</h3>
+                    <p className="text-xs truncate text-muted">{booking.event?.title}</p>
+                    <p className="text-xs truncate text-subtle">
+                      {booking.user?.name} · {booking.customer_email}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-primary">FCFA {(Number(booking.total_price) || 0).toFixed(0)}</p>
-                    <p className="text-xs text-muted">{new Date(booking.created_at).toLocaleDateString()}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-display font-bold text-primary tabular-nums">
+                      {formatCurrency(booking.total_price)}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {new Date(booking.created_at).toLocaleDateString('fr-FR')}
+                    </p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </Card>
       </div>
 
-      <section className="glass-card rounded-[36px] border border-border p-10">
-        <h2 className="text-2xl font-semibold text-fg">Top Events by Capacity</h2>
-        <div className="mt-6 grid gap-4">
-          {stats?.topEvents?.map((event) => (
-            <div key={event.id} className="rounded-3xl border border-border bg-surface p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-fg">{event.title}</h3>
-                  <p className="text-sm text-muted">Capacity: {event.ticket_quantity}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted">Remaining: {event.remaining_tickets}</p>
-                  <div className="mt-2 h-2 w-32 rounded-full bg-surface-hover">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${((event.ticket_quantity - event.remaining_tickets) / event.ticket_quantity) * 100}%`
-                      }}
-                    ></div>
+      <Card as="section" className="p-6">
+        <h2 className="font-display text-lg font-semibold text-fg">Capacité des événements</h2>
+        <div className="grid gap-3 mt-5">
+          {stats?.topEvents?.map((event) => {
+            const sold = event.ticket_quantity - event.remaining_tickets;
+            const pct = event.ticket_quantity > 0 ? (sold / event.ticket_quantity) * 100 : 0;
+            return (
+              <div key={event.id} className="p-4 border rounded-xl border-border bg-bg">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold truncate text-fg">{event.title}</h3>
+                    <p className="text-xs text-muted">Capacité : {event.ticket_quantity}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted">Restants : {event.remaining_tickets}</p>
+                    <div className="w-32 h-1.5 mt-2 overflow-hidden rounded-full bg-surface-hover">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
 
 export default Dashboard;
-

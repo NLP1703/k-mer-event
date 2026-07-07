@@ -169,13 +169,13 @@ function OrganizerEvents() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-      <div className="glass-card rounded-[36px] border border-border p-8">
-        <h1 className="text-4xl font-semibold text-fg">Mon event manager</h1>
+      <div className="bg-surface shadow-card rounded-2xl border border-border p-8">
+        <h1 className="font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">Mes événements</h1>
         <p className="mt-3 text-muted">Créez, modifiez et supprimez uniquement vos propres événements.</p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-        <section className="glass-card rounded-[36px] border border-border p-8">
+        <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
           <h2 className="text-2xl font-semibold text-fg">Créer un nouvel événement</h2>
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -270,7 +270,7 @@ function OrganizerEvents() {
           </form>
         </section>
 
-        <section className="glass-card rounded-[36px] border border-border p-8">
+        <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
           <h2 className="text-2xl font-semibold text-fg">Vos événements</h2>
           <div className="mt-6 space-y-4">
             {events.map((eventItem) => {

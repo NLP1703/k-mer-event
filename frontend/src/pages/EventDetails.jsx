@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 import {
   CalendarDays,
   MapPin,
-  User as UserIcon,
-  Ticket,
+  Clock,
   Minus,
   Plus,
   ShoppingBag,
@@ -16,7 +15,7 @@ import {
   Share2,
   BellPlus,
 } from 'lucide-react';
-import { fetchEvent, joinWaitlist } from '../services/api.js';
+import { fetchEvent, fetchEvents, joinWaitlist } from '../services/api.js';
 import { socket } from '../lib/socket.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -26,6 +25,7 @@ import { useFavorites } from '../lib/favorites.js';
 import { shareEventWhatsApp } from '../lib/share.js';
 import { cn } from '../lib/cn.js';
 import EventLocationMap from '../components/EventLocationMap.jsx';
+import EventCard from '../components/EventCard.jsx';
 import { Navigation } from 'lucide-react';
 
 const normalizePhotoUrls = (value) => {
@@ -69,6 +69,83 @@ const formatPrice = (price) => {
   return `FCFA ${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}`;
 };
 
+const formatTime = (iso) => {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return null;
+  }
+};
+
+/* Compte à rebours avant le début de l'événement */
+function Countdown({ startIso, endIso }) {
+  const [now, setNow] = useState(() => Date.now());
+  const target = useMemo(() => {
+    const t = startIso ? new Date(startIso).getTime() : NaN;
+    return Number.isFinite(t) ? t : null;
+  }, [startIso]);
+  const end = useMemo(() => {
+    const t = endIso ? new Date(endIso).getTime() : NaN;
+    return Number.isFinite(t) ? t : null;
+  }, [endIso]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!target) return null;
+
+  const diff = target - now;
+
+  if (diff <= 0) {
+    if (end && now < end) {
+      return (
+        <Card className="flex items-center gap-3 p-4">
+          <span className="relative flex w-2.5 h-2.5">
+            <span className="absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping bg-success" />
+            <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-success" />
+          </span>
+          <p className="text-sm font-semibold text-fg">Événement en cours</p>
+        </Card>
+      );
+    }
+    return null;
+  }
+
+  const dys = Math.floor(diff / 86_400_000);
+  const hrs = Math.floor((diff % 86_400_000) / 3_600_000);
+  const min = Math.floor((diff % 3_600_000) / 60_000);
+  const sec = Math.floor((diff % 60_000) / 1_000);
+  const cells = [
+    { v: dys, label: 'Jours' },
+    { v: hrs, label: 'Heures' },
+    { v: min, label: 'Min' },
+    { v: sec, label: 'Sec' },
+  ];
+
+  return (
+    <Card className="p-4">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+        L’événement commence dans
+      </p>
+      <div className="grid grid-cols-4 gap-2 mt-3" role="timer" aria-live="off">
+        {cells.map(({ v, label }) => (
+          <div key={label} className="py-2 text-center border rounded-xl border-border bg-bg">
+            <p className="font-display text-xl font-bold text-fg tabular-nums">
+              {String(v).padStart(2, '0')}
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-subtle">{label}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function EventDetailsSkeleton() {
   return (
     <div className="space-y-8">
@@ -103,6 +180,7 @@ function EventDetails() {
   const [videoFailed, setVideoFailed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [waitlistState, setWaitlistState] = useState('idle'); // idle | joining | joined
+  const [similar, setSimilar] = useState([]);
 
   // `silent` refreshes (focus/poll) update the event in place, without resetting
   // the loading state, gallery selection, or the user's quantity choice.
@@ -161,6 +239,28 @@ function EventDetails() {
     socket.on('events:changed', onChange);
     return () => socket.off('events:changed', onChange);
   }, [loadEvent, id]);
+
+  // Événements similaires : même catégorie ou même ville, hors événement courant.
+  useEffect(() => {
+    if (!event?.id) return undefined;
+    let active = true;
+    fetchEvents({})
+      .then((data) => {
+        if (!active) return;
+        const list = (data.events || [])
+          .filter(
+            (e) =>
+              String(e.id) !== String(event.id) &&
+              (e.category === event.category || e.city === event.city),
+          )
+          .slice(0, 3);
+        setSimilar(list);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [event?.id, event?.category, event?.city]);
 
   const photoUrls = useMemo(() => normalizePhotoUrls(event?.photo_urls), [event]);
   const allImages = useMemo(() => {
@@ -283,12 +383,39 @@ function EventDetails() {
           )}
 
           {!showVideo ? (
-            <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
+            <div className="absolute inset-x-0 bottom-0 p-6 md:p-8 bg-gradient-to-t from-[#090D20]/85 via-[#090D20]/40 to-transparent">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="primary">{event.category}</Badge>
-                {isSoldOut ? <Badge variant="danger">Complet</Badge> : null}
+                <Badge variant="primary" className="bg-white/10 text-white border-white/25 backdrop-blur-sm">
+                  {event.category}
+                </Badge>
+                {isSoldOut ? (
+                  <Badge variant="rose" className="text-white bg-rose border-transparent">Complet</Badge>
+                ) : null}
               </div>
-              <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{event.title}</h1>
+              <h1 className="mt-3 font-display text-2xl font-bold tracking-tight text-white md:text-4xl">
+                {event.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-sm text-white/80">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4" />
+                  {new Date(event.start_date).toLocaleDateString('fr-FR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
+                {formatTime(event.start_date) ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" />
+                    {formatTime(event.start_date)}
+                  </span>
+                ) : null}
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" />
+                  {event.venue} · {event.city}
+                </span>
+              </div>
             </div>
           ) : null}
         </div>
@@ -332,28 +459,42 @@ function EventDetails() {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <Card className="p-4">
-              <CalendarDays className="w-4 h-4 text-primary" />
-              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Date</p>
-              <p className="mt-1 text-sm font-medium text-fg">
+              <span className="inline-flex items-center justify-center rounded-lg w-9 h-9 bg-primary/10 text-primary">
+                <CalendarDays className="w-4 h-4" />
+              </span>
+              <p className="mt-3 text-[10px] uppercase tracking-wide text-subtle">Date & heure</p>
+              <p className="mt-1 text-sm font-semibold text-fg">
                 {new Date(event.start_date).toLocaleDateString('fr-FR', {
                   day: '2-digit',
                   month: 'long',
                   year: 'numeric',
                 })}
               </p>
+              {formatTime(event.start_date) ? (
+                <p className="text-xs text-muted">à {formatTime(event.start_date)}</p>
+              ) : null}
             </Card>
             <Card className="p-4">
-              <MapPin className="w-4 h-4 text-primary" />
-              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Lieu</p>
-              <p className="mt-1 text-sm font-medium text-fg truncate" title={`${event.venue} · ${event.city}`}>
+              <span className="inline-flex items-center justify-center rounded-lg w-9 h-9 bg-primary/10 text-primary">
+                <MapPin className="w-4 h-4" />
+              </span>
+              <p className="mt-3 text-[10px] uppercase tracking-wide text-subtle">Lieu</p>
+              <p className="mt-1 text-sm font-semibold text-fg truncate" title={`${event.venue} · ${event.city}`}>
                 {event.venue}
               </p>
               <p className="text-xs text-muted">{event.city}</p>
             </Card>
             <Card className="p-4">
-              <UserIcon className="w-4 h-4 text-primary" />
-              <p className="mt-2 text-[10px] uppercase tracking-wide text-subtle">Organisateur</p>
-              <p className="mt-1 text-sm font-medium text-fg truncate">{event.organizer}</p>
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-grad-brand text-white text-xs font-bold">
+                {String(event.organization_name || event.organizer || '?').trim()[0]?.toUpperCase() || '?'}
+              </span>
+              <p className="mt-3 text-[10px] uppercase tracking-wide text-subtle">Organisateur</p>
+              <p className="mt-1 text-sm font-semibold text-fg truncate">
+                {event.organization_name || event.organizer}
+              </p>
+              {event.organization_name && event.organizer ? (
+                <p className="text-xs truncate text-muted">{event.organizer}</p>
+              ) : null}
             </Card>
           </div>
 
@@ -397,7 +538,8 @@ function EventDetails() {
 
         {/* Right column: sticky booking card */}
         <aside>
-          <div className="lg:sticky lg:top-24">
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <Countdown startIso={event.start_date} endIso={event.end_date} />
             <Card className="p-6">
               {!hasTicketing ? (
                 <div className="text-center py-2">
@@ -412,7 +554,7 @@ function EventDetails() {
               <div className="flex items-baseline justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-subtle">Prix unitaire</p>
-                  <p className="text-3xl font-semibold text-fg">
+                  <p className="font-display text-3xl font-bold text-fg tabular-nums">
                     {isFree ? 'Gratuit' : formatPrice(event.ticket_price)}
                   </p>
                 </div>
@@ -513,7 +655,7 @@ function EventDetails() {
                   aria-pressed={isFavorite(event.id)}
                   className="inline-flex items-center justify-center gap-2 px-4 h-10 text-sm font-medium transition-colors border rounded-full border-border text-fg hover:bg-surface-hover"
                 >
-                  <Heart className={cn('w-4 h-4', isFavorite(event.id) && 'fill-warm text-warm')} />
+                  <Heart className={cn('w-4 h-4', isFavorite(event.id) && 'fill-rose text-rose')} />
                   {isFavorite(event.id) ? 'Favori' : 'Favori'}
                 </button>
                 <button
@@ -548,6 +690,23 @@ function EventDetails() {
           </div>
         </aside>
       </div>
+
+      {/* Événements similaires */}
+      {similar.length > 0 ? (
+        <section className="pt-4 space-y-6">
+          <div>
+            <p className="text-xs font-bold tracking-wider uppercase text-primary">À découvrir aussi</p>
+            <h2 className="mt-1 text-2xl font-semibold font-display text-fg md:text-3xl">
+              Événements similaires
+            </h2>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {similar.map((e) => (
+              <EventCard key={e.id} event={e} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

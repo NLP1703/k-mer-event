@@ -152,7 +152,7 @@ function Bookings() {
       className="space-y-6"
     >
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <h1 className="text-4xl font-semibold text-fg">Mes billets</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">Mes billets</h1>
         <div className="inline-flex p-1 border rounded-full border-border bg-bg-elevated">
           <button
             type="button"
@@ -204,7 +204,7 @@ function Bookings() {
             return (
               <div
                 key={booking.id}
-                className={`glass-card rounded-3xl border p-6 ${
+                className={`bg-surface shadow-card rounded-2xl border p-6 ${
                   expired ? 'border-border opacity-80' : 'border-border'
                 }`}
               >

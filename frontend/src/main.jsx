@@ -1,6 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
+// Polices auto-hébergées (zéro requête externe) — Outfit: titres, Manrope: texte.
+import '@fontsource/outfit/500.css';
+import '@fontsource/outfit/600.css';
+import '@fontsource/outfit/700.css';
+import '@fontsource/manrope/400.css';
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
@@ -18,7 +27,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       >
         <AuthProvider>
           <CartProvider>
-            <App />
+            {/* Respecte prefers-reduced-motion pour toutes les animations framer-motion */}
+            <MotionConfig reducedMotion="user">
+              <App />
+            </MotionConfig>
           </CartProvider>
         </AuthProvider>
       </BrowserRouter>

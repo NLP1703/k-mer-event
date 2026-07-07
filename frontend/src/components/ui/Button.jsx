@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { cn } from '../../lib/cn.js';
 
 const base =
-  'inline-flex items-center justify-center gap-2 font-medium rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg';
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-full transition duration-150 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg';
 
 const variants = {
-  primary: 'bg-primary text-primary-fg hover:bg-primary-hover',
-  secondary: 'bg-surface text-fg border border-border hover:bg-surface-hover',
+  // CTA principal : dégradé de marque (violet → indigo → bleu électrique).
+  primary:
+    'bg-grad-brand text-white shadow-glow hover:brightness-110 hover:-translate-y-px active:translate-y-0',
+  secondary: 'bg-surface text-fg border border-border hover:border-primary hover:text-primary',
   ghost: 'text-fg hover:bg-surface-hover',
   danger: 'bg-danger text-white hover:opacity-90',
   outline: 'border border-border-strong text-fg hover:bg-surface-hover',

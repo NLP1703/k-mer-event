@@ -20,6 +20,9 @@ export default {
         'primary-fg': 'rgb(var(--color-primary-fg) / <alpha-value>)',
         'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
         accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        violet: 'rgb(var(--color-violet) / <alpha-value>)',
+        cyan: 'rgb(var(--color-cyan) / <alpha-value>)',
+        rose: 'rgb(var(--color-rose) / <alpha-value>)',
         warm: 'rgb(var(--color-warm) / <alpha-value>)',
         success: 'rgb(var(--color-success) / <alpha-value>)',
         danger: 'rgb(var(--color-danger) / <alpha-value>)',
@@ -45,11 +48,15 @@ export default {
         // Semantic shadows that adapt to theme via CSS variables.
         card: 'var(--shadow-card)',
         elevated: 'var(--shadow-elevated)',
-        glow: '0 0 40px rgba(0, 255, 213, 0.12)',
+        glow: '0 8px 24px -8px rgb(var(--color-primary) / 0.5)',
+      },
+      backgroundImage: {
+        // Dégradé de marque — réservé aux CTA, hero et logo.
+        'grad-brand': 'var(--grad-brand)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Manrope', 'Segoe UI', 'system-ui', 'sans-serif'],
+        display: ['Outfit', 'Manrope', 'Segoe UI', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // A constrained type scale for visual consistency.

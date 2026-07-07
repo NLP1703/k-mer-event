@@ -135,7 +135,7 @@ function CheckIn() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs font-semibold tracking-wider uppercase text-warm">Contrôle d’accès</p>
+        <p className="text-xs font-semibold tracking-wider uppercase text-primary">Contrôle d’accès</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-fg md:text-4xl">Scan & check-in</h1>
         <p className="mt-2 text-sm text-muted">
           Scannez le QR du billet à l’entrée, ou saisissez son numéro manuellement.

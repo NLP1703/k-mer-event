@@ -7,6 +7,8 @@ const variants = {
   danger: 'bg-danger/10 text-danger border border-danger/20',
   warning: 'bg-warning/10 text-warning border border-warning/20',
   accent: 'bg-accent/10 text-accent border border-accent/20',
+  cyan: 'bg-cyan/10 text-cyan border border-cyan/20',
+  rose: 'bg-rose/10 text-rose border border-rose/20',
 };
 
 const sizes = {

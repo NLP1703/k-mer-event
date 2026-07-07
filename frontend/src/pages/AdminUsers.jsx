@@ -144,7 +144,7 @@ function AdminUsers() {
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">Loading users...</div>
+        <div className="bg-surface shadow-card rounded-2xl border border-border p-8 text-muted">Loading users...</div>
       </motion.div>
     );
   }
@@ -152,19 +152,19 @@ function AdminUsers() {
   if (error) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-border p-8 text-danger">{error}</div>
+        <div className="bg-surface shadow-card rounded-2xl border border-border p-8 text-danger">{error}</div>
       </motion.div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="glass-card rounded-[36px] border border-border p-8">
-        <h1 className="text-4xl font-semibold text-fg">Admin - Utilisateurs</h1>
+      <div className="bg-surface shadow-card rounded-2xl border border-border p-8">
+        <h1 className="font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">Utilisateurs</h1>
         <p className="mt-3 text-muted">Voir, créer, modifier et supprimer des utilisateurs.</p>
       </div>
 
-      <section className="glass-card rounded-[36px] border border-border p-8">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <h2 className="text-2xl font-semibold text-fg">Créer un utilisateur</h2>
 
         <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 mt-6 md:grid-cols-2">
@@ -240,7 +240,7 @@ function AdminUsers() {
         </form>
       </section>
 
-      <section className="glass-card rounded-[36px] border border-border p-8">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <h2 className="text-2xl font-semibold text-fg">Liste des utilisateurs</h2>
 
         {users.length === 0 ? (

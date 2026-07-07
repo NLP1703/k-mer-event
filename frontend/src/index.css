@@ -4,73 +4,86 @@
 
 /* =========================================================
    Design tokens — dual theme via CSS variables.
+   Direction v2 : violet · indigo · bleu électrique.
+   Sobre par défaut, électrique aux moments clés :
+   le dégradé de marque est réservé aux CTA, au hero et au logo.
    Tailwind utilities (bg-bg, text-fg, ...) read from these.
    Switch by toggling `.dark` on <html>.
    ========================================================= */
 
 :root {
-  /* Light theme (default) — clean SaaS look */
-  --color-bg: 250 251 253;            /* #FAFBFD */
+  /* Light theme (default) — neutres teintés d'indigo */
+  --color-bg: 247 248 252;            /* #F7F8FC */
   --color-bg-elevated: 255 255 255;   /* #FFFFFF */
   --color-surface: 255 255 255;       /* #FFFFFF */
-  --color-surface-hover: 245 247 250; /* #F5F7FA */
+  --color-surface-hover: 239 241 249; /* #EFF1F9 */
 
-  --color-fg: 15 23 42;               /* slate-900 */
-  --color-muted: 71 85 105;           /* slate-600 */
-  --color-subtle: 148 163 184;        /* slate-400 */
+  --color-fg: 18 20 46;               /* #12142E indigo-black */
+  --color-muted: 86 93 126;           /* #565D7E */
+  --color-subtle: 154 161 192;        /* #9AA1C0 */
 
-  --color-border: 226 232 240;        /* slate-200 */
-  --color-border-strong: 203 213 225; /* slate-300 */
+  --color-border: 227 230 243;        /* #E3E6F3 */
+  --color-border-strong: 205 210 232; /* #CDD2E8 */
 
-  --color-primary: 13 148 136;        /* teal-600 */
+  --color-primary: 99 85 245;         /* #6355F5 violet-indigo */
   --color-primary-fg: 255 255 255;
-  --color-primary-hover: 15 118 110;  /* teal-700 */
+  --color-primary-hover: 83 68 232;   /* #5344E8 */
 
-  --color-accent: 99 102 241;         /* indigo-500 */
+  --color-accent: 46 124 246;         /* #2E7CF6 bleu électrique */
+  --color-violet: 139 92 246;         /* #8B5CF6 */
+  --color-cyan: 8 184 212;            /* #08B8D4 */
+  --color-rose: 244 63 94;            /* #F43F5E — favoris, complet */
 
-  /* African warm accent (Terracotta / Ocre) — used sparingly on small elements */
-  --color-warm: 194 65 12;            /* #C2410C terracotta */
+  /* Accent chaud (orange) — urgence douce, éléments ponctuels */
+  --color-warm: 249 115 22;           /* #F97316 */
 
-  --color-success: 16 185 129;        /* emerald-500 */
-  --color-danger: 239 68 68;          /* red-500 */
-  --color-warning: 245 158 11;        /* amber-500 */
+  --color-success: 15 169 122;        /* #0FA97A émeraude */
+  --color-danger: 244 63 94;          /* #F43F5E rose */
+  --color-warning: 245 158 11;        /* #F59E0B ambre */
 
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
-  --shadow-elevated: 0 10px 30px -10px rgb(15 23 42 / 0.18), 0 4px 10px -4px rgb(15 23 42 / 0.08);
+  /* Dégradé de marque : violet → indigo → bleu électrique */
+  --grad-brand: linear-gradient(120deg, #8b5cf6, #6355f5 45%, #2e7cf6);
+
+  --shadow-card: 0 1px 2px rgb(18 20 46 / 0.05), 0 4px 16px -6px rgb(99 85 245 / 0.10);
+  --shadow-elevated: 0 18px 40px -16px rgb(18 20 46 / 0.28), 0 6px 16px -8px rgb(99 85 245 / 0.18);
 
   color-scheme: light;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: Manrope, 'Segoe UI', system-ui, sans-serif;
 }
 
 .dark {
-  /* Dark theme — refined version of the original night/neon brand */
-  --color-bg: 7 11 24;                /* #070B18 night */
-  --color-bg-elevated: 13 18 35;      /* #0D1223 */
-  --color-surface: 17 23 43;          /* #11172B */
-  --color-surface-hover: 22 30 54;    /* #161E36 */
+  /* Dark theme — bleu nuit / anthracite bleuté */
+  --color-bg: 10 14 31;               /* #0A0E1F bleu nuit */
+  --color-bg-elevated: 16 21 43;      /* #10152B */
+  --color-surface: 18 23 46;          /* #12172E */
+  --color-surface-hover: 26 33 64;    /* #1A2140 */
 
-  --color-fg: 248 250 252;            /* slate-50 */
-  --color-muted: 203 213 225;         /* slate-300 */
-  --color-subtle: 148 163 184;        /* slate-400 */
+  --color-fg: 241 243 255;            /* #F1F3FF */
+  --color-muted: 169 177 214;         /* #A9B1D6 */
+  --color-subtle: 107 115 153;        /* #6B7399 */
 
-  --color-border: 38 49 79;           /* subtle blue-tinted */
-  --color-border-strong: 51 65 100;
+  --color-border: 37 45 82;           /* #252D52 */
+  --color-border-strong: 51 61 107;   /* #333D6B */
 
-  --color-primary: 0 230 192;         /* refined neon — slightly less saturated */
-  --color-primary-fg: 7 11 24;        /* night */
-  --color-primary-hover: 64 245 215;
+  --color-primary: 133 119 255;       /* #8577FF */
+  --color-primary-fg: 10 14 31;       /* bleu nuit */
+  --color-primary-hover: 150 138 255; /* #968AFF */
 
-  --color-accent: 129 140 248;        /* indigo-400 */
+  --color-accent: 77 141 255;         /* #4D8DFF */
+  --color-violet: 167 139 250;        /* #A78BFA */
+  --color-cyan: 34 204 226;           /* #22CCE2 */
+  --color-rose: 251 93 119;           /* #FB5D77 */
 
-  /* African warm accent — lighter ocre for contrast on dark surfaces */
-  --color-warm: 224 145 90;           /* #E0915A ocre */
+  --color-warm: 251 140 60;           /* #FB8C3C */
 
-  --color-success: 52 211 153;        /* emerald-400 */
-  --color-danger: 248 113 113;        /* red-400 */
-  --color-warning: 251 191 36;        /* amber-400 */
+  --color-success: 43 213 150;        /* #2BD596 */
+  --color-danger: 251 93 119;         /* #FB5D77 */
+  --color-warning: 251 191 36;        /* #FBBF24 */
 
-  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.3);
-  --shadow-elevated: 0 20px 40px -15px rgb(0 0 0 / 0.5), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+  --grad-brand: linear-gradient(120deg, #a78bfa, #8577ff 45%, #4d8dff);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 18px -6px rgb(0 0 0 / 0.45);
+  --shadow-elevated: 0 22px 44px -16px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(133 119 255 / 0.12);
 
   color-scheme: dark;
 }
@@ -80,6 +93,12 @@ body {
   @apply min-h-screen antialiased;
   background-color: rgb(var(--color-bg));
   color: rgb(var(--color-fg));
+}
+
+/* Titres en Outfit par défaut */
+h1, h2, h3 {
+  font-family: Outfit, Manrope, 'Segoe UI', system-ui, sans-serif;
+  text-wrap: balance;
 }
 
 /* Accessible focus ring — works on light and dark */
@@ -95,6 +114,33 @@ html.theme-ready * {
   transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
 }
 
+/* Accessibilité : neutralise les animations CSS si l'utilisateur le demande */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================================
+   Brand utilities
+   ========================================================= */
+
+/* Dégradé de marque — CTA, hero, logo uniquement */
+.bg-grad-brand {
+  background-image: var(--grad-brand);
+}
+
+.text-grad-brand {
+  background-image: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* =========================================================
    Legacy classes — kept to avoid regressions on unmigrated pages.
    New code should use ui/Card or `bg-surface border border-border`.
@@ -102,16 +148,18 @@ html.theme-ready * {
 .glass-card {
   background-color: rgb(var(--color-surface) / 0.95);
   border: 1px solid rgb(var(--color-border));
+  -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
 
 .dark .glass-card {
   background-color: rgb(var(--color-surface) / 0.75);
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
 }
 
 .hero-gradient {
-  background: linear-gradient(135deg, rgb(var(--color-primary) / 0.18), rgb(var(--color-accent) / 0.14));
+  background: linear-gradient(135deg, rgb(var(--color-violet) / 0.18), rgb(var(--color-accent) / 0.14));
 }
 
 /* Skeleton shimmer for loading states */

@@ -44,7 +44,7 @@ function AdminUserBookings({ userId, onBack }) {
   if (!canRender) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">No user selected.</div>
+        <div className="bg-surface shadow-card rounded-2xl border border-border p-8 text-muted">No user selected.</div>
       </motion.div>
     );
   }
@@ -52,7 +52,7 @@ function AdminUserBookings({ userId, onBack }) {
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-border p-8 text-muted">Loading bookings...</div>
+        <div className="bg-surface shadow-card rounded-2xl border border-border p-8 text-muted">Loading bookings...</div>
       </motion.div>
     );
   }
@@ -60,17 +60,17 @@ function AdminUserBookings({ userId, onBack }) {
   if (error) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="glass-card rounded-[36px] border border-border p-8 text-danger">{error}</div>
+        <div className="bg-surface shadow-card rounded-2xl border border-border p-8 text-danger">{error}</div>
       </motion.div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="glass-card rounded-[36px] border border-border p-8">
+      <div className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-semibold text-fg">Bookings utilisateur</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">Réservations de l’utilisateur</h1>
             <p className="mt-2 text-muted">
               {user?.name} · {user?.email}
             </p>
@@ -87,7 +87,7 @@ function AdminUserBookings({ userId, onBack }) {
         </div>
       </div>
 
-      <section className="glass-card rounded-[36px] border border-border p-8">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <h2 className="text-2xl font-semibold text-fg">Liste des bookings</h2>
 
         {bookings.length === 0 ? (

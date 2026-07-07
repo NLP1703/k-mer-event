@@ -36,10 +36,10 @@ function Checkout() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 sm:gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-      <section className="glass-card rounded-[36px] border border-border p-6 sm:p-8">
+      <section className="bg-surface shadow-card rounded-2xl border border-border p-6 sm:p-8">
 
-        <h1 className="text-4xl font-semibold text-fg">Checkout</h1>
-        <p className="mt-3 text-muted">Complete your booking with attendee details and secure ticket generation.</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-fg md:text-4xl">Paiement</h1>
+        <p className="mt-3 text-muted">Complétez vos informations pour finaliser la réservation et recevoir vos billets QR.</p>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
           <label className="block text-sm text-muted">
@@ -82,7 +82,7 @@ function Checkout() {
         </form>
       </section>
 
-      <aside className="glass-card rounded-[36px] border border-border p-8">
+      <aside className="bg-surface shadow-card rounded-2xl border border-border p-8">
         <p className="text-sm uppercase tracking-[0.25em] text-primary">Order summary</p>
         <div className="mt-6 space-y-4">
           {items.map((item) => (
