@@ -25,6 +25,13 @@ export const User = sequelize.define(
 
   avatar_url: { type: DataTypes.STRING },
 
+  // Per-operator Mobile Money numbers. When an organizer sells tickets, buyers
+  // pay them directly on the matching network: MTN MoMo -> momo_mtn, Orange
+  // Money -> momo_orange. Both optional; `telephone` is the legacy fallback.
+  // Migration: backend/scripts/migrate-momo.js (also auto-ensured by init-db).
+  momo_mtn: { type: DataTypes.STRING(30), allowNull: true, defaultValue: null },
+  momo_orange: { type: DataTypes.STRING(30), allowNull: true, defaultValue: null },
+
   // Persistent profile picture (URL). Stored as VARCHAR(1000) NULL.
   // Migration: backend/scripts/migrate-profile-picture.js (also auto-ensured by init-db).
   profile_picture: {

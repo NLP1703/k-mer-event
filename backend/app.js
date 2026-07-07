@@ -22,6 +22,7 @@ import waitlistRoutes from './routes/waitlistRoutes.js';
 import geocodeRoutes from './routes/geocodeRoutes.js';
 import surveyRoutes from './routes/surveyRoutes.js';
 import favoritesRoutes from './routes/favoritesRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { trackActivity } from './middlewares/trackActivity.js';
 
@@ -149,6 +150,7 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/survey', surveyRoutes);
 app.use('/api/favorites', favoritesRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve the public survey form and the admin results dashboard same-origin,
 // so the shareable link is simply  https://<host>/survey/  with no CORS or

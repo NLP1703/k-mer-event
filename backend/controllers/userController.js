@@ -136,7 +136,7 @@ export const updateMyProfile = async (req, res, next) => {
       return res.status(422).json({ errors: errors.array() });
     }
 
-    const { name, telephone, email } = req.body;
+    const { name, telephone, email, momo_mtn, momo_orange } = req.body;
 
     const user = await User.findByPk(req.user.id);
     if (!user || user.is_deleted) {
@@ -156,6 +156,9 @@ export const updateMyProfile = async (req, res, next) => {
 
     if (name !== undefined) user.name = name;
     if (telephone !== undefined) user.telephone = telephone || null;
+    // Per-operator Mobile Money numbers (used when the user is an organizer).
+    if (momo_mtn !== undefined) user.momo_mtn = momo_mtn || null;
+    if (momo_orange !== undefined) user.momo_orange = momo_orange || null;
 
     await user.save();
 
@@ -167,6 +170,8 @@ export const updateMyProfile = async (req, res, next) => {
         email: user.email,
         role: user.role,
         telephone: user.telephone || null,
+        momo_mtn: user.momo_mtn || null,
+        momo_orange: user.momo_orange || null,
         profile_picture: user.profile_picture || null,
       },
     });
@@ -209,6 +214,8 @@ export const getMyProfile = async (req, res, next) => {
         email: user.email,
         role: user.role,
         telephone: user.telephone || null,
+        momo_mtn: user.momo_mtn || null,
+        momo_orange: user.momo_orange || null,
         profile_picture: user.profile_picture || null,
         avatar_url: user.avatar_url || null,
       },

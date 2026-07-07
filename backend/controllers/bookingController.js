@@ -5,7 +5,22 @@ import { Event } from '../models/Event.js';
 import { User } from '../models/User.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
-import { createBookingNumber, createQrCodeForBooking, deductStock, resolveOrganizerContact } from '../services/bookingService.js';
+import { createBookingNumber, createQrCodeForBooking, deductStock, resolveOrganizerContact, resolveOrganizerUser } from '../services/bookingService.js';
+import { createNotification } from '../services/notificationService.js';
+
+// Anti-hoarding rule: a buyer may not hold more than this many tickets still
+// awaiting the organizer's payment confirmation for a single event. It keeps
+// pending seats (reserved but unpaid) from being locked up indefinitely.
+export const MAX_PENDING_TICKETS_PER_EVENT = 3;
+
+// Sum the quantities of a user's still-pending bookings for one event.
+const pendingTicketsForEvent = async (userId, eventId, transaction) => {
+  const sum = await Booking.sum('quantity', {
+    where: { user_id: userId, event_id: eventId, status: 'pending' },
+    transaction,
+  });
+  return Number(sum) || 0;
+};
 
 export const createBooking = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -25,6 +40,17 @@ export const createBooking = async (req, res, next) => {
     if (event.remaining_tickets < quantity) {
       await t.rollback();
       return res.status(400).json({ message: 'Not enough tickets available' });
+    }
+
+    // Anti-hoarding: block the purchase if the buyer would end up holding more
+    // than MAX_PENDING_TICKETS_PER_EVENT tickets awaiting payment confirmation
+    // for this same event.
+    const alreadyPending = await pendingTicketsForEvent(req.user.id, event.id, t);
+    if (alreadyPending + Number(quantity) > MAX_PENDING_TICKETS_PER_EVENT) {
+      await t.rollback();
+      return res.status(409).json({
+        message: `Vous avez déjà ${alreadyPending} billet(s) en attente de confirmation pour cet événement. La limite est de ${MAX_PENDING_TICKETS_PER_EVENT} billets en attente par événement. Attendez la validation de l’organisateur avant d’en réserver d’autres.`,
+      });
     }
 
     const total_price = Number(event.ticket_price) * quantity;
@@ -76,6 +102,19 @@ export const checkoutCart = async (req, res, next) => {
       if (event.remaining_tickets < item.quantity) {
         await t.rollback();
         return res.status(400).json({ message: `Not enough tickets for ${event.title}` });
+      }
+
+      // Anti-hoarding: paid events keep the seat pending until the organizer
+      // confirms the Mobile Money transfer, so cap pending tickets per event.
+      const isFree = Number(event.ticket_price) * item.quantity <= 0;
+      if (!isFree) {
+        const alreadyPending = await pendingTicketsForEvent(req.user.id, event.id, t);
+        if (alreadyPending + Number(item.quantity) > MAX_PENDING_TICKETS_PER_EVENT) {
+          await t.rollback();
+          return res.status(409).json({
+            message: `Vous avez déjà ${alreadyPending} billet(s) en attente de confirmation pour « ${event.title} ». La limite est de ${MAX_PENDING_TICKETS_PER_EVENT} billets en attente par événement.`,
+          });
+        }
       }
     }
 
@@ -132,6 +171,8 @@ export const checkoutCart = async (req, res, next) => {
           amount: total_price,
           organizer_name: contact.organizer_name,
           momo_number: contact.momo_number,
+          momo_mtn: contact.momo_mtn,
+          momo_orange: contact.momo_orange,
         },
       });
     }
@@ -159,7 +200,10 @@ export const submitPaymentProof = async (req, res, next) => {
     const url = String(req.body?.url || '').trim();
     if (!url) return res.status(422).json({ message: 'Un fichier de preuve est requis' });
 
-    const booking = await Booking.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+    const booking = await Booking.findOne({
+      where: { id: req.params.id, user_id: req.user.id },
+      include: [{ model: Event, as: 'event' }],
+    });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     // Proof is only meaningful while payment is still pending confirmation.
@@ -169,6 +213,28 @@ export const submitPaymentProof = async (req, res, next) => {
 
     booking.payment_proof_url = url;
     await booking.save();
+
+    // Notify the organizer that a buyer has declared a payment for their event,
+    // so they can review the proof and confirm the ticket. Best-effort.
+    if (booking.event) {
+      const organizer = await resolveOrganizerUser(booking.event);
+      if (organizer?.id) {
+        const amount = Number(booking.total_price) || 0;
+        await createNotification({
+          userId: organizer.id,
+          type: 'payment_received',
+          title: 'Nouveau paiement à confirmer',
+          body: `${req.user.name} a envoyé un paiement de FCFA ${amount.toFixed(0)} pour « ${booking.event.title} ». Vérifiez la preuve et validez le billet.`,
+          data: {
+            bookingId: booking.id,
+            eventId: booking.event.id,
+            booking_number: booking.booking_number,
+            amount,
+          },
+        });
+      }
+    }
+
     return res.json({ booking: { id: booking.id, payment_proof_url: booking.payment_proof_url } });
   } catch (error) {
     next(error);
@@ -267,6 +333,8 @@ export const getBookingsForUser = async (req, res, next) => {
             amount: Number(base.total_price),
             organizer_name: contact.organizer_name,
             momo_number: contact.momo_number,
+            momo_mtn: contact.momo_mtn,
+            momo_orange: contact.momo_orange,
           };
         }
         return base;

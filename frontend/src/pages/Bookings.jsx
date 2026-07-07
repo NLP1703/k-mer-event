@@ -10,9 +10,7 @@ import {
   submitPaymentProof,
 } from '../services/api.js';
 import ImageUploader from '../components/ImageUploader.jsx';
-
-// Strip formatting so the phone dialer receives a clean number (keep a leading +).
-const dialable = (raw) => String(raw || '').replace(/[^\d+]/g, '');
+import MomoOperators from '../components/MomoOperators.jsx';
 
 const isPending = (booking) => booking?.status === 'pending';
 
@@ -200,7 +198,6 @@ function Bookings() {
             };
             const fileCount = proof.urls?.length || 0;
             const canValidate = fileCount === 1 && proof.status !== 'saving' && proof.status !== 'saved';
-            const momo = booking.payment?.momo_number;
             return (
               <div
                 key={booking.id}
@@ -267,25 +264,7 @@ function Bookings() {
                       ) : null}
                     </div>
 
-                    {momo ? (
-                      <div className="rounded-2xl border border-border bg-bg-elevated p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-subtle">
-                          Numéro de l’organisateur
-                          {booking.payment?.organizer_name ? ` · ${booking.payment.organizer_name}` : ''}
-                        </p>
-                        <p className="mt-2 select-all font-mono text-lg font-semibold text-fg">{momo}</p>
-                        <a
-                          href={`tel:${dialable(momo)}`}
-                          className="mt-3 inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover"
-                        >
-                          📞 Ouvrir le téléphone
-                        </a>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-subtle">
-                        L’organisateur n’a pas renseigné de numéro Mobile Money. Contactez-le directement.
-                      </p>
-                    )}
+                    <MomoOperators payment={booking.payment} amount={booking.payment?.amount} />
 
                     <div>
                       <p className="text-sm font-medium text-fg">Preuve de paiement (capture d’écran)</p>

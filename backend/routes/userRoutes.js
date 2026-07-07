@@ -35,6 +35,16 @@ router.put(
       .isString()
       .isLength({ max: 30 })
       .withMessage('Téléphone invalide (max 30 caractères)'),
+    body('momo_mtn')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 30 })
+      .withMessage('Numéro MTN invalide (max 30 caractères)'),
+    body('momo_orange')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 30 })
+      .withMessage('Numéro Orange invalide (max 30 caractères)'),
   ],
   updateMyProfile,
 );

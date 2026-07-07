@@ -103,6 +103,8 @@ export const listEvents = async (req, res, next) => {
     } else {
       // Public view: only published events are ever listed.
       where.status = 'published';
+      // ...and never past/archived events (auto-archived once their date passes).
+      where.archived_at = { [Op.is]: null };
     }
 
     // Organizers can scope to their own events (now a real FK column).

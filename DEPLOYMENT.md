@@ -241,7 +241,14 @@ npm run migrate:favorites
 npm run migrate:organizer-id
 npm run migrate:money-decimal
 npm run migrate:search-index
+npm run migrate:archived        # events.archived_at (archivage auto des événements passés)
+npm run migrate:momo            # users.momo_mtn / momo_orange (numéros MTN & Orange)
+npm run migrate:notifications   # table notifications (notifications in-app)
 pm2 restart kmer-api
+
+# Note : le serveur applique aussi ces 3 ajouts de schéma automatiquement au
+# démarrage (services/ensureSchema.js), donc un oubli ne casse plus l'API — mais
+# lancer les migrations reste la voie propre et explicite.
 
 # frontend
 cd ../frontend && npm install && npm run build

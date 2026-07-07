@@ -14,6 +14,7 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import { NotificationProvider } from './context/NotificationContext.jsx';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -26,12 +27,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         }}
       >
         <AuthProvider>
-          <CartProvider>
-            {/* Respecte prefers-reduced-motion pour toutes les animations framer-motion */}
-            <MotionConfig reducedMotion="user">
-              <App />
-            </MotionConfig>
-          </CartProvider>
+          <NotificationProvider>
+            <CartProvider>
+              {/* Respecte prefers-reduced-motion pour toutes les animations framer-motion */}
+              <MotionConfig reducedMotion="user">
+                <App />
+              </MotionConfig>
+            </CartProvider>
+          </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

@@ -371,6 +371,22 @@ export const syncFavoritesApi = async (eventIds) => {
   return response.data;
 };
 
+// In-app notifications — the current user's list + unread count.
+export const fetchNotifications = async () => {
+  const response = await api.get('/notifications');
+  return response.data; // { notifications, unread }
+};
+
+export const markNotificationRead = async (id) => {
+  const response = await api.patch(`/notifications/${id}/read`);
+  return response.data;
+};
+
+export const markAllNotificationsRead = async () => {
+  const response = await api.post('/notifications/read-all');
+  return response.data;
+};
+
 // Admin dashboard: aggregated platform statistics.
 export const fetchDashboardStats = async () => {
   const response = await api.get('/dashboard');

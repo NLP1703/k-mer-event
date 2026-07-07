@@ -92,4 +92,11 @@ export const Event = sequelize.define('Event', {
   // and init-db ensures the column). The legacy `organizer` string is retained
   // for display/back-compat but ownership checks prefer organizer_id.
   organizer_id: { type: DataTypes.UUID, allowNull: true },
+
+  // Soft-archive marker. A background job (services/eventArchiver.js) sets this
+  // once an event's date is past. Archived events disappear from the public
+  // listing but are KEPT in the database so the organizer still sees them in
+  // their statistics/history. Stored as DATETIME NULL.
+  // Migration: scripts/migrate-archived.js (also auto-ensured by init-db).
+  archived_at: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
 });

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { Button, Container, Avatar, ThemeToggle } from './ui';
+import NotificationBell from './NotificationBell.jsx';
 import { cn } from '../lib/cn.js';
 
 const linkBase =
@@ -317,6 +318,7 @@ function Layout() {
 
           {/* Right cluster */}
           <div className="flex items-center gap-2">
+            {user ? <NotificationBell /> : null}
             <ThemeToggle className="hidden sm:inline-flex" />
 
             {user ? (

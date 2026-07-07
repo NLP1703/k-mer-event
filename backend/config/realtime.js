@@ -112,6 +112,9 @@ export const initSocket = (server) => {
         });
       }
 
+      // Every authenticated user joins a personal room so we can push in-app
+      // notifications straight to their open tabs (see emitNotification).
+      socket.join(`user:${user.id}`);
       // Admins receive live presence updates + a dedicated moderation channel
       // (every event change, including private drafts/pending).
       if (user.role === 'admin') socket.join('admins');
@@ -178,4 +181,12 @@ export const emitEventsChanged = (type, eventOrId) => {
 export const emitSurveyResponse = (total) => {
   if (!io) return;
   io.emit('survey:new', { total });
+};
+
+// Push a freshly created in-app notification to a single user's open tabs. The
+// client (NotificationContext) prepends it to the list and bumps the unread
+// badge without a page reload. No-op if the socket layer isn't up yet.
+export const emitNotification = (userId, notification) => {
+  if (!io || !userId) return;
+  io.to(`user:${userId}`).emit('notification:new', notification);
 };

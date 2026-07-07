@@ -3,6 +3,7 @@ import { Booking } from '../models/Booking.js';
 import { User } from '../models/User.js';
 import { sequelize } from '../config/db.js';
 import { restoreStock } from '../services/bookingService.js';
+import { createNotification } from '../services/notificationService.js';
 
 // Shared ownership guard: an organizer may only act on their own events.
 // Prefers the referential organizer_id; falls back to the legacy name match.
@@ -184,6 +185,30 @@ export const updateOrganizerEventBookingStatus = async (req, res, next) => {
 
     await booking.save({ transaction: t });
     await t.commit();
+
+    // Notify the buyer of the organizer's decision (ticket validated or
+    // rejected). Best-effort — never fails the request. Runs after commit so a
+    // notification is only sent for a persisted status change.
+    if (booking.user_id) {
+      if (status === 'confirmed') {
+        await createNotification({
+          userId: booking.user_id,
+          type: 'ticket_confirmed',
+          title: 'Billet validé ✅',
+          body: `Votre paiement pour « ${event.title} » a été confirmé. Votre billet est prêt, retrouvez-le dans « Mes billets ».`,
+          data: { bookingId: booking.id, eventId: event.id, booking_number: booking.booking_number },
+        });
+      } else {
+        await createNotification({
+          userId: booking.user_id,
+          type: 'ticket_rejected',
+          title: 'Réservation annulée ❌',
+          body: `Votre réservation pour « ${event.title} » a été annulée par l’organisateur. Contactez-le si vous pensez qu’il s’agit d’une erreur.`,
+          data: { bookingId: booking.id, eventId: event.id, booking_number: booking.booking_number },
+        });
+      }
+    }
+
     return res.status(200).json({ booking: { id: booking.id, status: booking.status } });
   } catch (error) {
     try { await t.rollback(); } catch { /* already settled */ }

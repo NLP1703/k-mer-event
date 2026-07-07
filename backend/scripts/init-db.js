@@ -118,6 +118,15 @@ const syncDatabase = async () => {
       console.warn('⚠️ Could not ensure auth/favorites tables exist:', e?.message || e);
     }
 
+    // Ensure the `notifications` table exists (in-app notifications).
+    try {
+      const { Notification } = await import('../models/Notification.js');
+      await Notification.sync({ alter: false, force: false });
+      console.log('✅ Ensured Notification table exists');
+    } catch (e) {
+      console.warn('⚠️ Could not ensure Notification table exists:', e?.message || e);
+    }
+
     // Ensure bookings.payment_proof_url column exists (Mobile Money proof
     // screenshot uploaded by the buyer, reviewed by the organizer).
     try {
@@ -146,6 +155,38 @@ const syncDatabase = async () => {
       }
     } catch (e) {
       console.warn('⚠️  Could not ensure events.organizer_id column:', e?.message || e);
+    }
+
+    // Ensure events.archived_at column exists (auto-archival of past events).
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'archived_at'`,
+      );
+      if (Number(rows?.[0]?.cnt || 0) === 0) {
+        await sequelize.query('ALTER TABLE `events` ADD COLUMN `archived_at` DATETIME NULL;');
+        console.log('✅ Added missing column events.archived_at');
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not ensure events.archived_at column:', e?.message || e);
+    }
+
+    // Ensure users.momo_mtn / users.momo_orange columns exist (per-operator
+    // Mobile Money numbers so buyers can pay the organizer on the right network).
+    for (const column of ['momo_mtn', 'momo_orange']) {
+      try {
+        const [rows] = await sequelize.query(
+          `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+          { replacements: [column] },
+        );
+        if (Number(rows?.[0]?.cnt || 0) === 0) {
+          await sequelize.query(`ALTER TABLE \`users\` ADD COLUMN \`${column}\` VARCHAR(30) NULL;`);
+          console.log(`✅ Added missing column users.${column}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️  Could not ensure users.${column} column:`, e?.message || e);
+      }
     }
 
     console.log('✅ Database schema synced (attempted) successfully');

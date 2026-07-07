@@ -31,15 +31,11 @@ export const deductStock = async (eventId, quantity, transaction) => {
   return affected > 0;
 };
 
-// Resolve the organizer's contact for an event so buyers can pay by Mobile
-// Money (Orange Money / MTN MoMo) directly to the organizer while the real
-// payment APIs are not yet wired. Ownership prefers the referential
+// Resolve the User record that owns an event. Ownership prefers the referential
 // organizer_id; falls back to matching the legacy `organizer` name string.
-// Returns { organizer_name, momo_number } — momo_number is null when the
-// organizer has not filled in a phone number.
-export const resolveOrganizerContact = async (event, transaction) => {
-  if (!event) return { organizer_name: null, momo_number: null };
-
+// Returns the User instance (or null when it can't be resolved).
+export const resolveOrganizerUser = async (event, transaction) => {
+  if (!event) return null;
   let organizerUser = null;
   if (event.organizer_id) {
     organizerUser = await User.findByPk(event.organizer_id, { transaction });
@@ -50,10 +46,28 @@ export const resolveOrganizerContact = async (event, transaction) => {
       transaction,
     });
   }
+  return organizerUser;
+};
+
+// Resolve the organizer's contact for an event so buyers can pay by Mobile
+// Money (Orange Money / MTN MoMo) directly to the organizer while the real
+// payment APIs are not yet wired. Returns per-operator numbers so the client
+// can dial the one matching the network it wants to pay on. Each field is null
+// when the organizer hasn't filled it in; `momo_number` is a legacy fallback
+// (the generic `telephone`) used when a specific operator number is missing.
+export const resolveOrganizerContact = async (event, transaction) => {
+  if (!event) {
+    return { organizer_name: null, momo_number: null, momo_mtn: null, momo_orange: null };
+  }
+
+  const organizerUser = await resolveOrganizerUser(event, transaction);
+  const fallback = organizerUser?.telephone || null;
 
   return {
     organizer_name: event.organizer || organizerUser?.name || null,
-    momo_number: organizerUser?.telephone || null,
+    momo_number: fallback,
+    momo_mtn: organizerUser?.momo_mtn || fallback,
+    momo_orange: organizerUser?.momo_orange || fallback,
   };
 };
 

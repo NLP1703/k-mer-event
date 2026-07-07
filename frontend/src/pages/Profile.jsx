@@ -77,6 +77,10 @@ function Profile() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
+  // Per-operator Mobile Money numbers (organizers only) so buyers can pay them
+  // on the matching network.
+  const [momoMtn, setMomoMtn] = useState('');
+  const [momoOrange, setMomoOrange] = useState('');
   const [infoSubmitting, setInfoSubmitting] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
   const [infoError, setInfoError] = useState('');
@@ -111,6 +115,8 @@ function Profile() {
           setName(u?.name || '');
           setEmail(u?.email || '');
           setTelephone(u?.telephone || '');
+          setMomoMtn(u?.momo_mtn || '');
+          setMomoOrange(u?.momo_orange || '');
         }
       } catch (e) {
         if (isMounted) setError(e?.response?.data?.message || 'Impossible de charger votre profil');
@@ -135,11 +141,17 @@ function Profile() {
     }
     try {
       setInfoSubmitting(true);
-      const data = await updateMyProfileApi({
+      const payload = {
         name: name.trim(),
         email: email.trim(),
         telephone: telephone.trim() || null,
-      });
+      };
+      // Only organizers manage Mobile Money numbers.
+      if (profile?.role === 'organizer') {
+        payload.momo_mtn = momoMtn.trim() || null;
+        payload.momo_orange = momoOrange.trim() || null;
+      }
+      const data = await updateMyProfileApi(payload);
       const updated = data?.user || {};
       setProfile((prev) => ({ ...(prev || {}), ...updated }));
       updateUser({ name: updated.name, email: updated.email });
@@ -360,6 +372,41 @@ function Profile() {
                 autoComplete="tel"
               />
             </div>
+
+            {profile?.role === 'organizer' ? (
+              <div className="pt-2 space-y-4 border-t border-border">
+                <p className="text-xs font-semibold tracking-wide uppercase text-subtle">
+                  Numéros Mobile Money (paiement des billets)
+                </p>
+                <p className="-mt-2 text-xs text-muted">
+                  Vos acheteurs seront redirigés vers ces numéros selon l’opérateur choisi.
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-momo-mtn">Numéro MTN MoMo</Label>
+                  <Input
+                    id="profile-momo-mtn"
+                    type="tel"
+                    value={momoMtn}
+                    onChange={(e) => setMomoMtn(e.target.value)}
+                    maxLength={30}
+                    placeholder="+237 6XX XX XX XX"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-momo-orange">Numéro Orange Money</Label>
+                  <Input
+                    id="profile-momo-orange"
+                    type="tel"
+                    value={momoOrange}
+                    onChange={(e) => setMomoOrange(e.target.value)}
+                    maxLength={30}
+                    placeholder="+237 6XX XX XX XX"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <Button type="submit" variant="primary" size="md" disabled={infoSubmitting}>
               {infoSubmitting ? 'Enregistrement…' : 'Enregistrer les modifications'}

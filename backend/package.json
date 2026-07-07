@@ -33,7 +33,13 @@
     "migrate:geo": "node scripts/migrate-geo.js up",
     "migrate:geo:down": "node scripts/migrate-geo.js down",
     "migrate:survey": "node scripts/migrate-survey.js up",
-    "migrate:survey:down": "node scripts/migrate-survey.js down"
+    "migrate:survey:down": "node scripts/migrate-survey.js down",
+    "migrate:archived": "node scripts/migrate-archived.js up",
+    "migrate:archived:down": "node scripts/migrate-archived.js down",
+    "migrate:momo": "node scripts/migrate-momo.js up",
+    "migrate:momo:down": "node scripts/migrate-momo.js down",
+    "migrate:notifications": "node scripts/migrate-notifications.js up",
+    "migrate:notifications:down": "node scripts/migrate-notifications.js down"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

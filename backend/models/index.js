@@ -10,6 +10,7 @@ import '../models/ActivityLog.js';
 import '../models/RefreshToken.js';
 import '../models/LoginAttempt.js';
 import '../models/Favorite.js';
+import '../models/Notification.js';
 
 export * from './User.js';
 export * from './Event.js';
@@ -23,3 +24,4 @@ export * from './ActivityLog.js';
 export * from './RefreshToken.js';
 export * from './LoginAttempt.js';
 export * from './Favorite.js';
+export * from './Notification.js';

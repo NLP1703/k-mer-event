@@ -226,22 +226,28 @@ function Hero({ search, setSearch, onPickCategory }) {
   );
 }
 
-/* ============ Catégories — grille statique cliquable ============ */
+/* ============ Catégories — carrousel horizontal cliquable ============ */
 function Categories({ active, onPick }) {
   return (
     <section id="categories" className="space-y-5">
       <SectionHead eyebrow="Explorer" title="Catégories populaires" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Défilement horizontal : la liste glisse latéralement (swipe mobile,
+          molette/trackpad desktop). Scrollbar masquée, snap sur chaque carte. */}
+      <div
+        className="flex gap-3 pb-2 -mx-1 px-1 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        role="list"
+      >
         {CATEGORIES.map(({ label, icon: Icon }) => {
           const isActive = active === label;
           return (
             <button
               key={label}
               type="button"
+              role="listitem"
               onClick={() => onPick(isActive ? '' : label)}
               aria-pressed={isActive}
               className={cn(
-                'p-4 text-center transition rounded-2xl border shadow-card',
+                'snap-start shrink-0 w-32 sm:w-36 p-4 text-center transition rounded-2xl border shadow-card',
                 isActive
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-surface hover:border-primary/50 hover:-translate-y-0.5',

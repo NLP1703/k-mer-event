@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ImageUploader from '../components/ImageUploader.jsx';
+import MomoOperators from '../components/MomoOperators.jsx';
 import { submitPaymentProof } from '../services/api.js';
 
 // After checkout, bookings are created as `pending`. Mobile payment APIs
@@ -9,10 +10,6 @@ import { submitPaymentProof } from '../services/api.js';
 // sending the amount to the organizer's phone number. This screen shows the
 // number and amount, and opens the phone dialer via a `tel:` link. The
 // organizer confirms receipt afterwards, which validates the ticket.
-
-// Strip spaces/formatting so the dialer receives a clean number. Keep a leading
-// "+" for international prefixes.
-const dialable = (raw) => String(raw || '').replace(/[^\d+]/g, '');
 
 function PaymentInstructions() {
   const location = useLocation();
@@ -88,8 +85,6 @@ function PaymentInstructions() {
 
       <div className="space-y-4">
         {bookings.map((booking) => {
-          const number = booking.payment?.momo_number;
-          const clean = dialable(number);
           const proof = proofs[booking.id] || { urls: [], status: 'idle' };
           const fileCount = proof.urls?.length || 0;
           const canValidate = fileCount === 1 && proof.status !== 'saving' && proof.status !== 'saved';
@@ -110,33 +105,9 @@ function PaymentInstructions() {
                 </div>
               </div>
 
-              {number ? (
-                <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-subtle">
-                    Numéro de l’organisateur
-                    {booking.payment?.organizer_name ? ` · ${booking.payment.organizer_name}` : ''}
-                  </p>
-                  <p className="mt-2 select-all font-mono text-xl font-semibold text-fg">{number}</p>
-                  <a
-                    href={`tel:${clean}`}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-primary px-6 py-4 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover sm:w-auto"
-                  >
-                    📞 Ouvrir le téléphone
-                  </a>
-                  <p className="mt-3 text-xs text-subtle">
-                    Le clavier de votre téléphone s’ouvre avec le numéro. Composez le code Mobile
-                    Money de votre opérateur pour envoyer FCFA{' '}
-                    {(Number(booking.payment?.amount) || 0).toFixed(0)}.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
-                  <p className="text-sm text-danger">
-                    L’organisateur n’a pas encore renseigné de numéro Mobile Money. Contactez-le
-                    directement pour régler votre billet.
-                  </p>
-                </div>
-              )}
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
+                <MomoOperators payment={booking.payment} amount={booking.payment?.amount} />
+              </div>
 
               <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
                 <p className="text-sm font-semibold text-fg">Preuve de paiement</p>
