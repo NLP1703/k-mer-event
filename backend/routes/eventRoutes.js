@@ -5,7 +5,6 @@ import {
   optionalAuthenticate,
   authorize,
   authorizeEventOwner,
-  restrictOrganizerToPending,
 } from '../middlewares/auth.js';
 import {
   createEvent,
@@ -64,12 +63,14 @@ router.put(
   updateEvent,
 );
 
+// Delete: admin can delete any event; an organizer can delete their OWN events
+// (ownership enforced by authorizeEventOwner). The controller removes dependent
+// rows (bookings, payments, carts, waitlist, favourites) transactionally.
 router.delete(
   '/:id',
   authenticate,
   authorize('admin', 'organizer'),
   authorizeEventOwner,
-  restrictOrganizerToPending,
   deleteEvent,
 );
 

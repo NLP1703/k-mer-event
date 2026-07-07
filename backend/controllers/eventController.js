@@ -1,8 +1,14 @@
 import { validationResult } from 'express-validator';
 import { Op } from 'sequelize';
 import Sequelize from 'sequelize';
+import { sequelize } from '../config/db.js';
 import { Event } from '../models/Event.js';
 import { Booking } from '../models/Booking.js';
+import { BookingItem } from '../models/BookingItem.js';
+import { Payment } from '../models/Payment.js';
+import { Cart } from '../models/Cart.js';
+import { Favorite } from '../models/Favorite.js';
+import { Waitlist } from '../models/Waitlist.js';
 import { User } from '../models/User.js';
 import { notifyWaitlistForEvent } from './waitlistController.js';
 import { emitEventsChanged } from '../config/realtime.js';
@@ -407,16 +413,45 @@ export const approveEventByAdmin = async (req, res, next) => {
 };
 
 export const deleteEvent = async (req, res, next) => {
+  // Deleting an event must also remove every row that references it, otherwise
+  // the NOT-NULL foreign keys (bookings.event_id, carts.event_id, …) block the
+  // DELETE and it fails with a constraint error. We remove the dependents in FK
+  // order inside a single transaction so the whole thing is atomic.
+  const t = await sequelize.transaction();
   try {
-    const event = await Event.findByPk(req.params.id);
+    const event = await Event.findByPk(req.params.id, { transaction: t });
     if (!event) {
+      await t.rollback();
       return res.status(404).json({ message: 'Event not found' });
     }
     const deletedId = event.id;
-    await event.destroy();
+
+    // Bookings first: remove their own dependents (payments, booking items)
+    // before the bookings themselves.
+    const bookings = await Booking.findAll({
+      where: { event_id: deletedId },
+      attributes: ['id'],
+      transaction: t,
+    });
+    const bookingIds = bookings.map((b) => b.id);
+    if (bookingIds.length) {
+      await Payment.destroy({ where: { booking_id: { [Op.in]: bookingIds } }, transaction: t });
+      await BookingItem.destroy({ where: { booking_id: { [Op.in]: bookingIds } }, transaction: t });
+      await Booking.destroy({ where: { id: { [Op.in]: bookingIds } }, transaction: t });
+    }
+
+    // Remaining event-scoped rows: carts, waitlist entries, favourites.
+    await Cart.destroy({ where: { event_id: deletedId }, transaction: t });
+    await Waitlist.destroy({ where: { event_id: deletedId }, transaction: t });
+    await Favorite.destroy({ where: { event_id: deletedId }, transaction: t });
+
+    await event.destroy({ transaction: t });
+    await t.commit();
+
     emitEventsChanged('deleted', { id: deletedId });
     res.status(204).end();
   } catch (error) {
+    try { await t.rollback(); } catch { /* already settled */ }
     next(error);
   }
 };

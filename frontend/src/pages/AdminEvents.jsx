@@ -70,8 +70,17 @@ function AdminEvents() {
   };
 
   const removeEvent = async (eventId) => {
-    await deleteEvent(eventId);
-    setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    const ok = window.confirm(
+      'Supprimer définitivement cet événement ? Les réservations et billets liés seront aussi supprimés. Cette action est irréversible.',
+    );
+    if (!ok) return;
+    try {
+      await deleteEvent(eventId);
+      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+      setMessage('Événement supprimé.');
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Suppression impossible. Réessayez.');
+    }
   };
 
   const startEdit = (eventItem) => {

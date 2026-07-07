@@ -74,8 +74,17 @@ function OrganizerEvents() {
   };
 
   const removeEvent = async (eventId) => {
-    await deleteEvent(eventId);
-    setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    const ok = window.confirm(
+      'Supprimer définitivement cet événement ? Les réservations et billets liés seront aussi supprimés. Cette action est irréversible.',
+    );
+    if (!ok) return;
+    try {
+      await deleteEvent(eventId);
+      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+      setMessage('Événement supprimé.');
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Suppression impossible. Réessayez.');
+    }
   };
 
   const startEdit = (eventItem) => {
@@ -530,7 +539,7 @@ function OrganizerEvents() {
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <button onClick={() => saveEdit(eventItem.id)} type="button" className="px-6 py-3 text-sm font-semibold transition rounded-full bg-primary text-primary-fg hover:bg-primary-hover">
-                          Enregistrer
+                          Confirmer
                         </button>
                         <button onClick={cancelEdit} type="button" className="px-6 py-3 text-sm font-semibold text-fg transition border rounded-full border-border hover:border-primary">
                           Annuler
