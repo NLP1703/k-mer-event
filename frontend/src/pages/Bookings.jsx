@@ -33,29 +33,36 @@ function Bookings() {
   const [tab, setTab] = useState('active'); // 'active' | 'expired'
   const [downloadError, setDownloadError] = useState('');
   const [waitlist, setWaitlist] = useState([]);
-  // Per-booking payment-proof upload state: { url, status, message }.
+  // Per-booking proof state: { urls: string[], status, message }. The screenshot
+  // is submitted only when the buyer clicks "Valider le paiement", and only when
+  // exactly one file is present.
   const [proofs, setProofs] = useState({});
 
-  const handleProof = async (bookingId, url) => {
-    if (!url) {
-      setProofs((prev) => ({ ...prev, [bookingId]: { url: '', status: 'idle' } }));
-      return;
-    }
-    setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saving' } }));
+  const handleUpload = (bookingId, urls) => {
+    setProofs((prev) => ({
+      ...prev,
+      [bookingId]: { urls: Array.isArray(urls) ? urls.filter(Boolean) : [], status: 'idle' },
+    }));
+  };
+
+  const handleValidate = async (bookingId) => {
+    const urls = proofs[bookingId]?.urls || [];
+    if (urls.length !== 1) return; // guarded by the disabled button
+    setProofs((prev) => ({ ...prev, [bookingId]: { urls, status: 'saving' } }));
     try {
-      await submitPaymentProof(bookingId, url);
-      setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saved' } }));
+      await submitPaymentProof(bookingId, urls[0]);
+      setProofs((prev) => ({ ...prev, [bookingId]: { urls, status: 'saved' } }));
       // Reflect the saved proof on the booking so it survives a tab switch.
       setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, payment_proof_url: url } : b)),
+        prev.map((b) => (b.id === bookingId ? { ...b, payment_proof_url: urls[0] } : b)),
       );
     } catch (err) {
       setProofs((prev) => ({
         ...prev,
         [bookingId]: {
-          url,
+          urls,
           status: 'error',
-          message: err.response?.data?.message || 'Échec de l’envoi de la preuve. Réessayez.',
+          message: err.response?.data?.message || 'Échec de la validation. Réessayez.',
         },
       }));
     }
@@ -188,9 +195,11 @@ function Bookings() {
             const expired = isExpired(booking);
             const pending = isPending(booking);
             const proof = proofs[booking.id] || {
-              url: booking.payment_proof_url || '',
+              urls: booking.payment_proof_url ? [booking.payment_proof_url] : [],
               status: booking.payment_proof_url ? 'saved' : 'idle',
             };
+            const fileCount = proof.urls?.length || 0;
+            const canValidate = fileCount === 1 && proof.status !== 'saving' && proof.status !== 'saved';
             const momo = booking.payment?.momo_number;
             return (
               <div
@@ -281,24 +290,48 @@ function Bookings() {
                     <div>
                       <p className="text-sm font-medium text-fg">Preuve de paiement (capture d’écran)</p>
                       <p className="mt-1 text-xs text-subtle">
-                        Ajoutez la capture de votre transfert (numéro + montant). L’organisateur la
-                        vérifie avant de valider votre billet.
+                        Ajoutez <strong className="text-fg">une seule</strong> capture de votre
+                        transfert (numéro + montant), puis validez votre paiement. L’organisateur la
+                        vérifie avant de confirmer votre billet.
                       </p>
                       <div className="mt-3">
                         <ImageUploader
-                          value={proof.url}
-                          onChange={(url) => handleProof(booking.id, url)}
+                          multiple
+                          value={proof.urls}
+                          onChange={(urls) => handleUpload(booking.id, urls)}
                         />
                       </div>
-                      {proof.status === 'saving' ? (
-                        <p className="mt-2 text-xs text-muted">Envoi de la preuve…</p>
-                      ) : proof.status === 'saved' ? (
-                        <p className="mt-2 text-xs text-emerald-500">
-                          ✓ Preuve envoyée. En attente de validation par l’organisateur.
+
+                      {proof.status === 'saved' ? (
+                        <p className="mt-3 text-sm text-emerald-500">
+                          ✓ Paiement validé. En attente de confirmation par l’organisateur.
                         </p>
-                      ) : proof.status === 'error' ? (
-                        <p className="mt-2 text-xs text-danger">{proof.message}</p>
-                      ) : null}
+                      ) : (
+                        <>
+                          {fileCount > 1 ? (
+                            <p className="mt-3 text-xs text-danger">
+                              Une seule capture est autorisée. Retirez-en {fileCount - 1} pour pouvoir valider.
+                            </p>
+                          ) : fileCount === 0 ? (
+                            <p className="mt-3 text-xs text-subtle">
+                              Ajoutez votre capture pour pouvoir valider le paiement.
+                            </p>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() => handleValidate(booking.id)}
+                            disabled={!canValidate}
+                            className="mt-3 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {proof.status === 'saving' ? 'Validation…' : 'Valider le paiement'}
+                          </button>
+
+                          {proof.status === 'error' ? (
+                            <p className="mt-2 text-xs text-danger">{proof.message}</p>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : null}

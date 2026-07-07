@@ -18,26 +18,34 @@ function PaymentInstructions() {
   const location = useLocation();
   const bookings = (location.state?.bookings || []).filter((b) => b.payment?.required);
 
-  // Per-booking proof upload state: { url, status: 'idle'|'saving'|'saved'|'error', message }.
+  // Per-booking proof state: { urls: string[], status: 'idle'|'saving'|'saved'|'error', message }.
+  // The screenshot is NOT sent on upload: the buyer uploads it, then clicks
+  // "Valider le paiement" to submit it (which is blocked unless exactly one file).
   const [proofs, setProofs] = useState({});
 
-  const handleProof = async (bookingId, url) => {
-    if (!url) {
-      // File removed by the uploader — clear local state (server keeps the last saved one).
-      setProofs((prev) => ({ ...prev, [bookingId]: { url: '', status: 'idle' } }));
-      return;
-    }
-    setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saving' } }));
+  // Uploader changed — hold the file(s) locally, do not submit yet.
+  const handleUpload = (bookingId, urls) => {
+    setProofs((prev) => ({
+      ...prev,
+      [bookingId]: { urls: Array.isArray(urls) ? urls.filter(Boolean) : [], status: 'idle' },
+    }));
+  };
+
+  // Explicit validation: submit the single screenshot as the payment proof.
+  const handleValidate = async (bookingId) => {
+    const urls = proofs[bookingId]?.urls || [];
+    if (urls.length !== 1) return; // guarded by the disabled button
+    setProofs((prev) => ({ ...prev, [bookingId]: { urls, status: 'saving' } }));
     try {
-      await submitPaymentProof(bookingId, url);
-      setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saved' } }));
+      await submitPaymentProof(bookingId, urls[0]);
+      setProofs((prev) => ({ ...prev, [bookingId]: { urls, status: 'saved' } }));
     } catch (err) {
       setProofs((prev) => ({
         ...prev,
         [bookingId]: {
-          url,
+          urls,
           status: 'error',
-          message: err.response?.data?.message || 'Échec de l’envoi de la preuve. Réessayez.',
+          message: err.response?.data?.message || 'Échec de la validation. Réessayez.',
         },
       }));
     }
@@ -82,7 +90,9 @@ function PaymentInstructions() {
         {bookings.map((booking) => {
           const number = booking.payment?.momo_number;
           const clean = dialable(number);
-          const proof = proofs[booking.id] || { url: '', status: 'idle' };
+          const proof = proofs[booking.id] || { urls: [], status: 'idle' };
+          const fileCount = proof.urls?.length || 0;
+          const canValidate = fileCount === 1 && proof.status !== 'saving' && proof.status !== 'saved';
           return (
             <div key={booking.id} className="glass-card rounded-3xl border border-border p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -131,25 +141,48 @@ function PaymentInstructions() {
               <div className="mt-5 rounded-3xl border border-border bg-surface p-5">
                 <p className="text-sm font-semibold text-fg">Preuve de paiement</p>
                 <p className="mt-1 text-xs text-subtle">
-                  Après le transfert, ajoutez la capture d’écran de la confirmation Mobile Money
-                  (avec le numéro et le montant). L’organisateur la vérifie avant de valider votre
-                  billet.
+                  Après le transfert, ajoutez <strong className="text-fg">une seule</strong> capture
+                  d’écran de la confirmation Mobile Money (avec le numéro et le montant), puis validez
+                  votre paiement. L’organisateur la vérifie avant de confirmer votre billet.
                 </p>
                 <div className="mt-4">
                   <ImageUploader
-                    value={proof.url}
-                    onChange={(url) => handleProof(booking.id, url)}
+                    multiple
+                    value={proof.urls}
+                    onChange={(urls) => handleUpload(booking.id, urls)}
                   />
                 </div>
-                {proof.status === 'saving' ? (
-                  <p className="mt-2 text-xs text-muted">Envoi de la preuve…</p>
-                ) : proof.status === 'saved' ? (
-                  <p className="mt-2 text-xs text-emerald-500">
-                    ✓ Preuve envoyée. L’organisateur va la vérifier.
+
+                {proof.status === 'saved' ? (
+                  <p className="mt-3 text-sm text-emerald-500">
+                    ✓ Paiement validé. En attente de confirmation par l’organisateur.
                   </p>
-                ) : proof.status === 'error' ? (
-                  <p className="mt-2 text-xs text-danger">{proof.message}</p>
-                ) : null}
+                ) : (
+                  <>
+                    {fileCount > 1 ? (
+                      <p className="mt-3 text-xs text-danger">
+                        Une seule capture est autorisée. Retirez-en {fileCount - 1} pour pouvoir valider.
+                      </p>
+                    ) : fileCount === 0 ? (
+                      <p className="mt-3 text-xs text-subtle">
+                        Ajoutez votre capture pour pouvoir valider le paiement.
+                      </p>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => handleValidate(booking.id)}
+                      disabled={!canValidate}
+                      className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-primary px-6 py-4 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                    >
+                      {proof.status === 'saving' ? 'Validation…' : 'Valider le paiement'}
+                    </button>
+
+                    {proof.status === 'error' ? (
+                      <p className="mt-2 text-xs text-danger">{proof.message}</p>
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
           );

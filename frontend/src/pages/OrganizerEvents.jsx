@@ -357,7 +357,21 @@ function OrganizerEvents() {
                                       <span className="block text-xs font-normal text-subtle">{b.attendee.phone}</span>
                                     ) : null}
                                   </td>
-                                  <td className="py-2.5 pr-4 font-mono text-xs text-fg break-all">{b.booking_number}</td>
+                                  <td className="py-2.5 pr-4 font-mono text-xs text-fg break-all">
+                                    {b.booking_number}
+                                    {b.created_at ? (
+                                      <span className="block font-sans text-subtle">
+                                        Réservé le{' '}
+                                        {new Date(b.created_at).toLocaleString('fr-FR', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })}
+                                      </span>
+                                    ) : null}
+                                  </td>
                                   <td className="py-2.5 pr-4 text-muted">{b.quantity}</td>
                                   <td className="py-2.5 pr-4 text-fg whitespace-nowrap">
                                     FCFA {(Number(b.amount) || 0).toFixed(0)}
