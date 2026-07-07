@@ -131,6 +131,13 @@ export const checkoutCart = async (billing) => {
   return response.data;
 };
 
+// Attach a Mobile Money payment proof (screenshot URL) to a pending booking so
+// the organizer can review it before confirming.
+export const submitPaymentProof = async (bookingId, url) => {
+  const response = await api.post(`/bookings/${bookingId}/payment-proof`, { url });
+  return response.data;
+};
+
 export const fetchBookings = async () => {
   const response = await api.get('/bookings');
   return response.data;
@@ -196,6 +203,16 @@ export const fetchOrganizerEventStatistics = async () => {
 // Lets the organizer cross-check a scanned QR against the buyer's identity.
 export const fetchOrganizerEventBookings = async (eventId) => {
   const response = await api.get(`/organizer/events/${eventId}/bookings`);
+  return response.data;
+};
+
+// Confirm (payment received) or cancel a booking for one of the organizer's
+// own events. `status` is 'confirmed' | 'cancelled'.
+export const updateOrganizerBookingStatus = async (eventId, bookingId, status) => {
+  const response = await api.patch(
+    `/organizer/events/${eventId}/bookings/${bookingId}/status`,
+    { status },
+  );
   return response.data;
 };
 

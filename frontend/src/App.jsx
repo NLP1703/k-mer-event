@@ -6,6 +6,7 @@ import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
+import PaymentInstructions from './pages/PaymentInstructions.jsx';
 import Success from './pages/Success.jsx';
 import Bookings from './pages/Bookings.jsx';
 import AdminEvents from './pages/AdminEvents.jsx';
@@ -31,6 +32,7 @@ function App() {
         <Route path="register" element={user ? <Navigate to="/" /> : <Register />} />
         <Route path="cart" element={<Cart />} />
         <Route path="checkout" element={user ? <Checkout /> : <Navigate to="/login" />} />
+        <Route path="payment" element={user ? <PaymentInstructions /> : <Navigate to="/login" />} />
         <Route path="success" element={<Success />} />
         <Route path="bookings" element={user ? <Bookings /> : <Navigate to="/login" />} />
         <Route path="profile" element={user ? <Profile /> : <Navigate to="/login" />} />

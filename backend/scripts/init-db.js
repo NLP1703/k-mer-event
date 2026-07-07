@@ -118,6 +118,21 @@ const syncDatabase = async () => {
       console.warn('⚠️ Could not ensure auth/favorites tables exist:', e?.message || e);
     }
 
+    // Ensure bookings.payment_proof_url column exists (Mobile Money proof
+    // screenshot uploaded by the buyer, reviewed by the organizer).
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'payment_proof_url'`,
+      );
+      if (Number(rows?.[0]?.cnt || 0) === 0) {
+        await sequelize.query('ALTER TABLE `bookings` ADD COLUMN `payment_proof_url` VARCHAR(1000) NULL;');
+        console.log('✅ Added missing column bookings.payment_proof_url');
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not ensure bookings.payment_proof_url column:', e?.message || e);
+    }
+
     // Ensure events.organizer_id column exists (referential ownership). The FK
     // and backfill are applied by scripts/migrate-organizer-id.js.
     try {

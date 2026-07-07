@@ -23,6 +23,11 @@ export const Booking = sequelize.define('Booking', {
   customer_name: { type: DataTypes.STRING },
   customer_email: { type: DataTypes.STRING },
   customer_phone: { type: DataTypes.STRING },
+  // Buyer-uploaded proof of the Mobile Money payment (a screenshot URL). The
+  // organizer reviews it before confirming a `pending` booking. Stored as
+  // VARCHAR(1000) NULL. Migration: scripts/migrate-payment-proof.js (also
+  // auto-ensured by init-db).
+  payment_proof_url: { type: DataTypes.STRING(1000), allowNull: true, defaultValue: null },
   // Set when the ticket is validated at the entrance (QR check-in).
   checked_in_at: { type: DataTypes.DATE, allowNull: true },
 });

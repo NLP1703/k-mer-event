@@ -2,7 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { BellRing, MapPin, X } from 'lucide-react';
-import { fetchBookings, downloadTicketPdf, fetchMyWaitlist, leaveWaitlist } from '../services/api.js';
+import {
+  fetchBookings,
+  downloadTicketPdf,
+  fetchMyWaitlist,
+  leaveWaitlist,
+  submitPaymentProof,
+} from '../services/api.js';
+import ImageUploader from '../components/ImageUploader.jsx';
+
+// Strip formatting so the phone dialer receives a clean number (keep a leading +).
+const dialable = (raw) => String(raw || '').replace(/[^\d+]/g, '');
+
+const isPending = (booking) => booking?.status === 'pending';
 
 const isExpired = (booking) => {
   if (booking?.ticket_status === 'expired') return true;
@@ -21,6 +33,33 @@ function Bookings() {
   const [tab, setTab] = useState('active'); // 'active' | 'expired'
   const [downloadError, setDownloadError] = useState('');
   const [waitlist, setWaitlist] = useState([]);
+  // Per-booking payment-proof upload state: { url, status, message }.
+  const [proofs, setProofs] = useState({});
+
+  const handleProof = async (bookingId, url) => {
+    if (!url) {
+      setProofs((prev) => ({ ...prev, [bookingId]: { url: '', status: 'idle' } }));
+      return;
+    }
+    setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saving' } }));
+    try {
+      await submitPaymentProof(bookingId, url);
+      setProofs((prev) => ({ ...prev, [bookingId]: { url, status: 'saved' } }));
+      // Reflect the saved proof on the booking so it survives a tab switch.
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, payment_proof_url: url } : b)),
+      );
+    } catch (err) {
+      setProofs((prev) => ({
+        ...prev,
+        [bookingId]: {
+          url,
+          status: 'error',
+          message: err.response?.data?.message || 'Échec de l’envoi de la preuve. Réessayez.',
+        },
+      }));
+    }
+  };
 
   useEffect(() => {
     fetchBookings()
@@ -147,6 +186,12 @@ function Bookings() {
         <div className="grid gap-6">
           {currentList.map((booking) => {
             const expired = isExpired(booking);
+            const pending = isPending(booking);
+            const proof = proofs[booking.id] || {
+              url: booking.payment_proof_url || '',
+              status: booking.payment_proof_url ? 'saved' : 'idle',
+            };
+            const momo = booking.payment?.momo_number;
             return (
               <div
                 key={booking.id}
@@ -161,6 +206,10 @@ function Bookings() {
                       {expired ? (
                         <span className="px-2 py-1 text-xs font-semibold uppercase rounded-full bg-danger/15 text-danger">
                           Expiré
+                        </span>
+                      ) : pending ? (
+                        <span className="px-2 py-1 text-xs font-semibold uppercase rounded-full bg-warm/15 text-warm">
+                          Paiement en attente
                         </span>
                       ) : (
                         <span className="px-2 py-1 text-xs font-semibold uppercase rounded-full bg-success/15 text-success">
@@ -183,6 +232,10 @@ function Bookings() {
                       <p className="text-xs text-danger">
                         Téléchargement indisponible — événement passé.
                       </p>
+                    ) : pending ? (
+                      <p className="text-xs text-warm">
+                        Validé après confirmation du paiement par l’organisateur.
+                      </p>
                     ) : (
                       <button
                         onClick={() => handleDownload(booking)}
@@ -193,6 +246,62 @@ function Bookings() {
                     )}
                   </div>
                 </div>
+
+                {pending ? (
+                  <div className="p-5 mt-5 space-y-4 border rounded-3xl border-border bg-surface">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="text-sm font-semibold text-fg">Finaliser le paiement Mobile Money</p>
+                      {booking.payment?.amount != null ? (
+                        <p className="text-lg font-semibold text-fg">
+                          FCFA {(Number(booking.payment.amount) || 0).toFixed(0)}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {momo ? (
+                      <div className="rounded-2xl border border-border bg-bg-elevated p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-subtle">
+                          Numéro de l’organisateur
+                          {booking.payment?.organizer_name ? ` · ${booking.payment.organizer_name}` : ''}
+                        </p>
+                        <p className="mt-2 select-all font-mono text-lg font-semibold text-fg">{momo}</p>
+                        <a
+                          href={`tel:${dialable(momo)}`}
+                          className="mt-3 inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover"
+                        >
+                          📞 Ouvrir le téléphone
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-subtle">
+                        L’organisateur n’a pas renseigné de numéro Mobile Money. Contactez-le directement.
+                      </p>
+                    )}
+
+                    <div>
+                      <p className="text-sm font-medium text-fg">Preuve de paiement (capture d’écran)</p>
+                      <p className="mt-1 text-xs text-subtle">
+                        Ajoutez la capture de votre transfert (numéro + montant). L’organisateur la
+                        vérifie avant de valider votre billet.
+                      </p>
+                      <div className="mt-3">
+                        <ImageUploader
+                          value={proof.url}
+                          onChange={(url) => handleProof(booking.id, url)}
+                        />
+                      </div>
+                      {proof.status === 'saving' ? (
+                        <p className="mt-2 text-xs text-muted">Envoi de la preuve…</p>
+                      ) : proof.status === 'saved' ? (
+                        <p className="mt-2 text-xs text-emerald-500">
+                          ✓ Preuve envoyée. En attente de validation par l’organisateur.
+                        </p>
+                      ) : proof.status === 'error' ? (
+                        <p className="mt-2 text-xs text-danger">{proof.message}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}

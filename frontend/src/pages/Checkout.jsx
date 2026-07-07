@@ -21,7 +21,12 @@ function Checkout() {
     try {
       const response = await checkoutCart(billing);
       await clearCart();
-      navigate('/success', { state: { bookings: response.bookings } });
+      // Bookings are created as `pending`: the buyer now pays by Mobile Money
+      // to the organizer. Send them to the payment-instructions screen. Free
+      // events are already confirmed and skip straight to success.
+      const bookings = response.bookings || [];
+      const needsPayment = bookings.some((b) => b.payment?.required);
+      navigate(needsPayment ? '/payment' : '/success', { state: { bookings } });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to complete booking.');
     } finally {
@@ -72,7 +77,7 @@ function Checkout() {
           {error ? <p className="text-sm text-danger">{error}</p> : null}
 
           <button type="submit" disabled={loading} className="w-full rounded-full bg-primary px-6 py-4 text-sm font-semibold text-primary-fg transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60">
-            {loading ? 'Processing...' : `Pay FCFA ${cartTotal.toFixed(0)}`}
+            {loading ? 'Traitement…' : `Continuer · FCFA ${cartTotal.toFixed(0)}`}
           </button>
         </form>
       </section>

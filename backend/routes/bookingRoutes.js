@@ -8,6 +8,7 @@ import {
   checkoutCart,
   downloadTicketPdf,
   checkInBooking,
+  submitPaymentProof,
 } from '../controllers/bookingController.js';
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.post(
   createBooking,
 );
 router.post('/checkout', authenticate, checkoutCart);
+router.post('/:id/payment-proof', authenticate, submitPaymentProof);
 router.get('/', authenticate, getBookingsForUser);
 router.get('/:id/ticket', authenticate, downloadTicketPdf);
 router.get('/:id', authenticate, getBookingById);

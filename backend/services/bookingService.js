@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/db.js';
 import { Event } from '../models/Event.js';
+import { User } from '../models/User.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Single source of truth for booking stock mechanics.
@@ -28,6 +29,32 @@ export const deductStock = async (eventId, quantity, transaction) => {
     },
   );
   return affected > 0;
+};
+
+// Resolve the organizer's contact for an event so buyers can pay by Mobile
+// Money (Orange Money / MTN MoMo) directly to the organizer while the real
+// payment APIs are not yet wired. Ownership prefers the referential
+// organizer_id; falls back to matching the legacy `organizer` name string.
+// Returns { organizer_name, momo_number } — momo_number is null when the
+// organizer has not filled in a phone number.
+export const resolveOrganizerContact = async (event, transaction) => {
+  if (!event) return { organizer_name: null, momo_number: null };
+
+  let organizerUser = null;
+  if (event.organizer_id) {
+    organizerUser = await User.findByPk(event.organizer_id, { transaction });
+  }
+  if (!organizerUser && event.organizer) {
+    organizerUser = await User.findOne({
+      where: { name: String(event.organizer).trim() },
+      transaction,
+    });
+  }
+
+  return {
+    organizer_name: event.organizer || organizerUser?.name || null,
+    momo_number: organizerUser?.telephone || null,
+  };
 };
 
 // Atomically give stock back (cancellation / refund). We restore exactly the

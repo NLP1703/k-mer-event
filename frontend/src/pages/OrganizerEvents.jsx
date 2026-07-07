@@ -6,6 +6,7 @@ import {
   deleteEvent,
   updateEvent,
   fetchOrganizerEventBookings,
+  updateOrganizerBookingStatus,
 } from '../services/api.js';
 import ImageUploader from '../components/ImageUploader.jsx';
 import VideoUploader from '../components/VideoUploader.jsx';
@@ -144,6 +145,25 @@ function OrganizerEvents() {
       setAttendeesError(err.response?.data?.message || 'Impossible de charger les participants');
     } finally {
       setAttendeesLoading(false);
+    }
+  };
+
+  // Confirm a Mobile Money payment (pending → confirmed) or cancel/reject it.
+  const changeBookingStatus = async (eventId, bookingId, status) => {
+    try {
+      await updateOrganizerBookingStatus(eventId, bookingId, status);
+      setAttendees((prev) =>
+        prev
+          ? {
+              ...prev,
+              bookings: prev.bookings.map((b) =>
+                b.id === bookingId ? { ...b, status, payment_pending: status === 'pending' } : b,
+              ),
+            }
+          : prev,
+      );
+    } catch (err) {
+      setAttendeesError(err.response?.data?.message || 'Impossible de mettre à jour la réservation');
     }
   };
 
@@ -305,7 +325,7 @@ function OrganizerEvents() {
                         ) : null}
                       </div>
                       <p className="text-xs text-subtle">
-                        Comparez le nom, l’ID et le n° de billet ci-dessous avec ceux affichés à l’écran lors du scan du QR code.
+                        Comparez le nom et le n° de billet ci-dessous avec ceux affichés à l’écran lors du scan du QR code. Confirmez le paiement Mobile Money reçu pour valider un billet en attente.
                       </p>
 
                       {attendeesLoading ? (
@@ -318,9 +338,10 @@ function OrganizerEvents() {
                             <thead>
                               <tr className="text-xs uppercase tracking-wider text-subtle">
                                 <th className="py-2 pr-4 font-medium">Nom</th>
-                                <th className="py-2 pr-4 font-medium">ID unique</th>
                                 <th className="py-2 pr-4 font-medium">N° de billet</th>
                                 <th className="py-2 pr-4 font-medium">Places</th>
+                                <th className="py-2 pr-4 font-medium">Montant</th>
+                                <th className="py-2 pr-4 font-medium">Paiement</th>
                                 <th className="py-2 pr-4 font-medium">Entrée</th>
                               </tr>
                             </thead>
@@ -332,12 +353,69 @@ function OrganizerEvents() {
                                     {b.attendee.email ? (
                                       <span className="block text-xs font-normal text-subtle">{b.attendee.email}</span>
                                     ) : null}
-                                  </td>
-                                  <td className="py-2.5 pr-4 font-mono text-xs text-muted break-all">
-                                    {b.attendee.user_id || '—'}
+                                    {b.attendee.phone ? (
+                                      <span className="block text-xs font-normal text-subtle">{b.attendee.phone}</span>
+                                    ) : null}
                                   </td>
                                   <td className="py-2.5 pr-4 font-mono text-xs text-fg break-all">{b.booking_number}</td>
                                   <td className="py-2.5 pr-4 text-muted">{b.quantity}</td>
+                                  <td className="py-2.5 pr-4 text-fg whitespace-nowrap">
+                                    FCFA {(Number(b.amount) || 0).toFixed(0)}
+                                  </td>
+                                  <td className="py-2.5 pr-4">
+                                    {b.status === 'cancelled' ? (
+                                      <span className="text-rose-500">Annulé</span>
+                                    ) : b.status === 'pending' ? (
+                                      <div className="flex flex-col gap-2">
+                                        <span className="text-amber-500">En attente</span>
+                                        {b.payment_proof_url ? (
+                                          <a
+                                            href={b.payment_proof_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-24 overflow-hidden border rounded-lg border-border hover:border-primary"
+                                            title="Voir la preuve de paiement"
+                                          >
+                                            <img
+                                              src={b.payment_proof_url}
+                                              alt="Preuve de paiement"
+                                              className="object-cover w-24 h-16"
+                                            />
+                                          </a>
+                                        ) : (
+                                          <span className="text-xs text-subtle">Aucune preuve envoyée</span>
+                                        )}
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() => changeBookingStatus(eventItem.id, b.id, 'confirmed')}
+                                            className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-400"
+                                          >
+                                            Confirmer
+                                          </button>
+                                          <button
+                                            onClick={() => changeBookingStatus(eventItem.id, b.id, 'cancelled')}
+                                            className="rounded-full bg-rose-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-rose-400"
+                                          >
+                                            Refuser
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col gap-1">
+                                        <span className="text-emerald-500">Payé</span>
+                                        {b.payment_proof_url ? (
+                                          <a
+                                            href={b.payment_proof_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs underline text-muted hover:text-primary"
+                                          >
+                                            Voir la preuve
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="py-2.5 pr-4">
                                     {b.status === 'cancelled' ? (
                                       <span className="text-rose-500">Annulé</span>

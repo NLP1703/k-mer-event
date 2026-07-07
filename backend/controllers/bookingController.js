@@ -5,7 +5,7 @@ import { Event } from '../models/Event.js';
 import { User } from '../models/User.js';
 import { Cart } from '../models/Cart.js';
 import { sequelize } from '../config/db.js';
-import { createBookingNumber, createQrCodeForBooking, deductStock } from '../services/bookingService.js';
+import { createBookingNumber, createQrCodeForBooking, deductStock, resolveOrganizerContact } from '../services/bookingService.js';
 
 export const createBooking = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -85,12 +85,20 @@ export const checkoutCart = async (req, res, next) => {
       const booking_number = createBookingNumber();
       const qr_code_url = await createQrCodeForBooking(booking_number, event.title, req.user.id);
 
-      // Deduct stock immediately during checkout (atomic, shared service).
+      // Reserve stock immediately during checkout (atomic, shared service) so
+      // the seat is held while the buyer completes the Mobile Money transfer.
       const ok = await deductStock(event.id, item.quantity, t);
       if (!ok) {
         await t.rollback();
         return res.status(409).json({ message: `Not enough tickets available for ${event.title}` });
       }
+
+      // Bookings start as `pending`: mobile payment is done manually to the
+      // organizer's Orange Money / MTN MoMo number, and the organizer confirms
+      // receipt (which flips the booking to `confirmed`). Free events (price 0)
+      // need no payment, so they are confirmed straight away.
+      const total_price = Number(event.ticket_price) * item.quantity;
+      const isFree = total_price <= 0;
 
       const booking = await Booking.create(
         {
@@ -98,9 +106,9 @@ export const checkoutCart = async (req, res, next) => {
           user_id: req.user.id,
           event_id: event.id,
           quantity: item.quantity,
-          total_price: Number(event.ticket_price) * item.quantity,
+          total_price,
           qr_code_url,
-          status: 'confirmed',
+          status: isFree ? 'confirmed' : 'pending',
           customer_name: req.body.name || req.user.name,
           customer_email: req.body.email || req.user.email,
           customer_phone: req.body.phone || '',
@@ -108,7 +116,24 @@ export const checkoutCart = async (req, res, next) => {
         { transaction: t }
       );
 
-      bookings.push(booking);
+      // Attach the organizer's Mobile Money contact so the client can be
+      // redirected to the phone dialer to pay. Null momo_number => the
+      // organizer has not set a phone number yet.
+      const contact = isFree
+        ? { organizer_name: event.organizer || null, momo_number: null }
+        : await resolveOrganizerContact(event, t);
+
+      const plain = booking.get({ plain: true });
+      bookings.push({
+        ...plain,
+        event: { id: event.id, title: event.title },
+        payment: {
+          required: !isFree,
+          amount: total_price,
+          organizer_name: contact.organizer_name,
+          momo_number: contact.momo_number,
+        },
+      });
     }
 
     await Cart.destroy({ where: { user_id: req.user.id }, transaction: t });
@@ -122,6 +147,30 @@ export const checkoutCart = async (req, res, next) => {
     } catch (e) {
       // ignore
     }
+    next(error);
+  }
+};
+
+// POST /api/bookings/:id/payment-proof — the buyer attaches a screenshot of
+// their Mobile Money transfer to a pending booking. The organizer reviews it
+// before confirming. Body: { url } (an /uploads/ URL produced by the uploader).
+export const submitPaymentProof = async (req, res, next) => {
+  try {
+    const url = String(req.body?.url || '').trim();
+    if (!url) return res.status(422).json({ message: 'Un fichier de preuve est requis' });
+
+    const booking = await Booking.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Proof is only meaningful while payment is still pending confirmation.
+    if (booking.status !== 'pending') {
+      return res.status(409).json({ message: 'Cette réservation n’est plus en attente de paiement' });
+    }
+
+    booking.payment_proof_url = url;
+    await booking.save();
+    return res.json({ booking: { id: booking.id, payment_proof_url: booking.payment_proof_url } });
+  } catch (error) {
     next(error);
   }
 };
@@ -206,7 +255,23 @@ export const getBookingsForUser = async (req, res, next) => {
       order: [['createdAt', 'DESC']],
     });
 
-    const decorated = bookings.map(decorateBooking);
+    // Attach Mobile Money payment info to still-pending bookings so the "Mes
+    // billets" page can act as a fallback to finish payment / upload the proof.
+    const decorated = await Promise.all(
+      bookings.map(async (booking) => {
+        const base = decorateBooking(booking);
+        if (base.status === 'pending' && Number(base.total_price) > 0) {
+          const contact = await resolveOrganizerContact(booking.event);
+          base.payment = {
+            required: true,
+            amount: Number(base.total_price),
+            organizer_name: contact.organizer_name,
+            momo_number: contact.momo_number,
+          };
+        }
+        return base;
+      }),
+    );
 
     let filtered = decorated;
     if (status === 'active' || status === 'expired' || status === 'cancelled') {
@@ -303,6 +368,17 @@ export const checkInBooking = async (req, res, next) => {
       return res
         .status(409)
         .json({ status: 'cancelled', message: 'Billet annulé', booking: serializeForCheckin(booking) });
+    }
+
+    // A pending booking has not been paid yet (the organizer has not confirmed
+    // the Mobile Money transfer). Do not let it through the entrance.
+    if (booking.status === 'pending') {
+      await t.rollback();
+      return res.status(409).json({
+        status: 'pending',
+        message: 'Paiement non confirmé par l’organisateur',
+        booking: serializeForCheckin(booking),
+      });
     }
 
     if (booking.checked_in_at) {
