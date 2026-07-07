@@ -244,8 +244,8 @@ function OrganizerEvents() {
                 <input type="datetime-local" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={inputClass} />
               </label>
               <label className="block text-muted">
-                Nombre de places (optionnel)
-                <input type="number" min="0" placeholder="Laisser vide si pas de billetterie" value={form.ticket_quantity} onChange={(e) => setForm({ ...form, ticket_quantity: e.target.value })} className={inputClass} />
+                Nombre de places (max 250)
+                <input type="number" min="0" max="250" placeholder="Laisser vide si pas de billetterie" value={form.ticket_quantity} onChange={(e) => setForm({ ...form, ticket_quantity: e.target.value })} className={inputClass} />
               </label>
             </div>
 
@@ -517,8 +517,8 @@ function OrganizerEvents() {
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block text-muted">
-                          Nombre de places (optionnel)
-                          <input type="number" min="0" placeholder="Vide = pas de billetterie" value={editForm.ticket_quantity} onChange={(e) => handleEditChange('ticket_quantity', e.target.value)} className={inputClass} />
+                          Nombre de places (max 250)
+                          <input type="number" min="0" max="250" placeholder="Vide = pas de billetterie" value={editForm.ticket_quantity} onChange={(e) => handleEditChange('ticket_quantity', e.target.value)} className={inputClass} />
                         </label>
                         <label className="block text-muted">
                           Prix (optionnel)

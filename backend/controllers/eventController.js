@@ -7,6 +7,9 @@ import { User } from '../models/User.js';
 import { notifyWaitlistForEvent } from './waitlistController.js';
 import { emitEventsChanged } from '../config/realtime.js';
 
+// Platform rule: an organizer may sell at most 250 tickets per event.
+export const MAX_ORGANIZER_TICKETS = 250;
+
 // Coerce a latitude/longitude into a valid number within range, else null.
 const parseCoordinate = (raw, kind) => {
   if (raw === '' || raw == null) return null;
@@ -218,6 +221,13 @@ export const createEvent = async (req, res, next) => {
     // Ticketing is optional — empty/absent values mean "no ticketing" (0).
     const quantity = Number(ticket_quantity) || 0;
 
+    // Cap the number of sellable places for organizers (platform rule).
+    if (isOrganizer && quantity > MAX_ORGANIZER_TICKETS) {
+      return res.status(422).json({
+        message: `Le nombre de places est limité à ${MAX_ORGANIZER_TICKETS} par événement.`,
+      });
+    }
+
     const eventPayload = {
       title,
       description,
@@ -317,6 +327,14 @@ export const updateEvent = async (req, res, next) => {
     }
     if (updateData.ticket_quantity != null) {
       const requestedQuantity = Number(updateData.ticket_quantity);
+
+      // Cap the number of sellable places for organizers (platform rule).
+      if (isOrganizer && requestedQuantity > MAX_ORGANIZER_TICKETS) {
+        return res.status(422).json({
+          message: `Le nombre de places est limité à ${MAX_ORGANIZER_TICKETS} par événement.`,
+        });
+      }
+
       const soldTickets = (await Booking.sum('quantity', {
         where: { event_id: event.id, status: 'confirmed' },
       })) || 0;
