@@ -349,7 +349,7 @@ function AdminUsers() {
                               <button
                                 type="button"
                                 onClick={() => handleDelete(u.id)}
-                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-rose-400"
+                                className="px-3 py-2 text-fg border rounded-full border-border hover:border-danger hover:text-danger"
                               >
                                 Supprimer
                               </button>

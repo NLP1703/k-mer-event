@@ -98,7 +98,7 @@ function ImageUploader({ value, onChange, multiple = false, label }) {
                 type="button"
                 onClick={() => removeAt(index)}
                 aria-label="Retirer l’image"
-                className="absolute inline-flex items-center justify-center w-7 h-7 transition rounded-full top-1.5 right-1.5 bg-black/70 text-white hover:bg-rose-500"
+                className="absolute inline-flex items-center justify-center w-7 h-7 transition rounded-full top-1.5 right-1.5 bg-black/70 text-white hover:bg-danger"
               >
                 <X className="w-4 h-4" />
               </button>

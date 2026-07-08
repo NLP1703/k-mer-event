@@ -258,7 +258,7 @@ function AdminEvents() {
                           <button onClick={() => approve(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-primary-fg transition rounded-full bg-primary hover:bg-primary-hover">
                             Valider
                           </button>
-                          <button onClick={() => cancel(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-rose-500 hover:bg-rose-400">
+                          <button onClick={() => cancel(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-danger hover:brightness-110">
                             Annuler
                           </button>
                         </>
@@ -267,7 +267,7 @@ function AdminEvents() {
                       <button onClick={() => startEdit(eventItem)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400">
                         Modifier
                       </button>
-                      <button onClick={() => removeEvent(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-rose-500 hover:bg-rose-400">
+                      <button onClick={() => removeEvent(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-danger hover:brightness-110">
                         Supprimer
                       </button>
                     </div>

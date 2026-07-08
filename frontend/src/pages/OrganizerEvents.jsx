@@ -301,7 +301,7 @@ function OrganizerEvents() {
                       <button onClick={() => startEdit(eventItem)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-sky-500 hover:bg-sky-400">
                         Modifier
                       </button>
-                      <button onClick={() => removeEvent(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-rose-500 hover:bg-rose-400">
+                      <button onClick={() => removeEvent(eventItem.id)} className="px-4 py-2 text-sm font-semibold text-white transition rounded-full bg-danger hover:brightness-110">
                         Supprimer
                       </button>
                     </div>
@@ -340,7 +340,7 @@ function OrganizerEvents() {
                       {attendeesLoading ? (
                         <p className="text-sm text-muted">Chargement…</p>
                       ) : attendeesError ? (
-                        <p className="text-sm text-rose-500">{attendeesError}</p>
+                        <p className="text-sm text-danger">{attendeesError}</p>
                       ) : attendees && attendees.bookings.length ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm text-left border-collapse">
@@ -387,7 +387,7 @@ function OrganizerEvents() {
                                   </td>
                                   <td className="py-2.5 pr-4">
                                     {b.status === 'cancelled' ? (
-                                      <span className="text-rose-500">Annulé</span>
+                                      <span className="text-danger">Annulé</span>
                                     ) : b.status === 'pending' ? (
                                       <div className="flex flex-col gap-2">
                                         <span className="text-amber-500">En attente</span>
@@ -417,7 +417,7 @@ function OrganizerEvents() {
                                           </button>
                                           <button
                                             onClick={() => changeBookingStatus(eventItem.id, b.id, 'cancelled')}
-                                            className="rounded-full bg-rose-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-rose-400"
+                                            className="rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white transition hover:brightness-110"
                                           >
                                             Refuser
                                           </button>
@@ -441,7 +441,7 @@ function OrganizerEvents() {
                                   </td>
                                   <td className="py-2.5 pr-4">
                                     {b.status === 'cancelled' ? (
-                                      <span className="text-rose-500">Annulé</span>
+                                      <span className="text-danger">Annulé</span>
                                     ) : b.checked_in ? (
                                       <span className="text-emerald-500">
                                         Validé{b.checked_in_at ? ` · ${new Date(b.checked_in_at).toLocaleString('fr-FR')}` : ''}
