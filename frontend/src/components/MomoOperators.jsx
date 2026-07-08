@@ -1,8 +1,12 @@
+import { resolveMomoFromPayment } from '../utils/momo.js';
+
 // Mobile Money operator picker. Cameroon has two networks — MTN MoMo and
-// Orange Money — and an organizer may hold a different number on each. We show
-// one "call to pay" button per available operator; tapping it opens the phone
-// dialer (tel:) pre-filled with that operator's number so the buyer sends the
-// transfer on the matching network.
+// Orange Money — and an organizer may hold a different number on each. Each
+// number is routed to the operator its prefix belongs to, so an organizer who
+// gave a single number gets a single button (the matching network), and two
+// numbers get one button each. We never show both buttons for the same number.
+// Tapping a button opens the phone dialer (tel:) pre-filled with that operator's
+// number so the buyer sends the transfer on the matching network.
 
 // Strip spaces/formatting so the dialer receives a clean number (keep a leading +).
 const dialable = (raw) => String(raw || '').replace(/[^\d+]/g, '');
@@ -22,11 +26,9 @@ const OPERATORS = [
 ];
 
 function MomoOperators({ payment, amount }) {
-  // Resolve each operator's number, falling back to the generic momo_number.
-  const numbers = {
-    mtn: payment?.momo_mtn || payment?.momo_number || null,
-    orange: payment?.momo_orange || payment?.momo_number || null,
-  };
+  // Resolve each operator's number by prefix. A lone number resolves to exactly
+  // one operator, so only that operator's button renders.
+  const numbers = resolveMomoFromPayment(payment);
   const available = OPERATORS.filter((op) => numbers[op.key]);
 
   if (!available.length) {

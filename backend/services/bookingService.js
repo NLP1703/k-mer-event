@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import { sequelize } from '../config/db.js';
 import { Event } from '../models/Event.js';
 import { User } from '../models/User.js';
+import { resolveOperatorNumbers } from '../utils/momo.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Single source of truth for booking stock mechanics.
@@ -51,23 +52,29 @@ export const resolveOrganizerUser = async (event, transaction) => {
 
 // Resolve the organizer's contact for an event so buyers can pay by Mobile
 // Money (Orange Money / MTN MoMo) directly to the organizer while the real
-// payment APIs are not yet wired. Returns per-operator numbers so the client
-// can dial the one matching the network it wants to pay on. Each field is null
-// when the organizer hasn't filled it in; `momo_number` is a legacy fallback
-// (the generic `telephone`) used when a specific operator number is missing.
+// payment APIs are not yet wired. Each number is routed to the operator its
+// prefix belongs to (see utils/momo.js), so an organizer who entered a single
+// number gets a single operator, and two numbers get one each — never the same
+// number mirrored onto both operators. A field is null when no number resolves
+// to that operator; `momo_number` keeps the raw legacy contact for reference.
 export const resolveOrganizerContact = async (event, transaction) => {
   if (!event) {
     return { organizer_name: null, momo_number: null, momo_mtn: null, momo_orange: null };
   }
 
   const organizerUser = await resolveOrganizerUser(event, transaction);
-  const fallback = organizerUser?.telephone || null;
+  const { mtn, orange } = resolveOperatorNumbers([
+    { number: organizerUser?.momo_mtn, label: 'mtn' },
+    { number: organizerUser?.momo_orange, label: 'orange' },
+    // Legacy single contact number: route it purely by its prefix (no label).
+    { number: organizerUser?.telephone, label: null },
+  ]);
 
   return {
     organizer_name: event.organizer || organizerUser?.name || null,
-    momo_number: fallback,
-    momo_mtn: organizerUser?.momo_mtn || fallback,
-    momo_orange: organizerUser?.momo_orange || fallback,
+    momo_number: organizerUser?.telephone || null,
+    momo_mtn: mtn,
+    momo_orange: orange,
   };
 };
 

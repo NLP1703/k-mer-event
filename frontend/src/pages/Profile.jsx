@@ -24,6 +24,39 @@ import {
 } from '../services/api.js';
 import ImageUploader from '../components/ImageUploader.jsx';
 import { Button, Card, Input, Label, Badge, Avatar, Skeleton } from '../components/ui';
+import { detectMomoOperator } from '../utils/momo.js';
+
+const OPERATOR_LABEL = { mtn: 'MTN MoMo', orange: 'Orange Money' };
+
+// Live feedback under a Mobile Money field: confirms the operator recognized
+// from the number's prefix, or warns when it looks like the other network's
+// number (likely typed into the wrong field).
+function MomoHint({ value, expected }) {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return null;
+  const detected = detectMomoOperator(trimmed);
+  if (!detected) {
+    return (
+      <p className="mt-1 text-xs text-subtle">
+        Numéro non reconnu automatiquement — il sera enregistré tel quel pour {OPERATOR_LABEL[expected]}.
+      </p>
+    );
+  }
+  if (detected === expected) {
+    return (
+      <p className="mt-1 flex items-center gap-1 text-xs text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Numéro {OPERATOR_LABEL[detected]} reconnu.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1 flex items-center gap-1 text-xs text-danger">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      Ce numéro ressemble à un numéro {OPERATOR_LABEL[detected]}. Vérifiez le champ.
+    </p>
+  );
+}
 
 function FieldRow({ icon: Icon, label, value }) {
   return (
@@ -392,6 +425,7 @@ function Profile() {
                     placeholder="+237 6XX XX XX XX"
                     autoComplete="off"
                   />
+                  <MomoHint value={momoMtn} expected="mtn" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="profile-momo-orange">Numéro Orange Money</Label>
@@ -404,6 +438,7 @@ function Profile() {
                     placeholder="+237 6XX XX XX XX"
                     autoComplete="off"
                   />
+                  <MomoHint value={momoOrange} expected="orange" />
                 </div>
               </div>
             ) : null}
