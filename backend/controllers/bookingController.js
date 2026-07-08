@@ -252,15 +252,12 @@ export const downloadTicketPdf = async (req, res, next) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Block download for expired tickets (event start date in the past)
-    // or cancelled bookings. Pending bookings can also be downloaded only after
-    // confirmation, but we keep the current behavior of allowing pending.
+    // Only cancelled bookings are blocked (they are refunded / voided and must
+    // not produce a valid-looking ticket). Past/expired events are allowed to
+    // download so the buyer keeps a proper PDF record of every ticket, past or
+    // not; pending bookings are also allowed (unchanged behavior).
     if (booking.status === 'cancelled') {
       return res.status(403).json({ message: 'Ticket annulé, téléchargement impossible' });
-    }
-    const eventStart = booking.event?.start_date ? new Date(booking.event.start_date) : null;
-    if (eventStart && Number.isFinite(eventStart.getTime()) && eventStart.getTime() < Date.now()) {
-      return res.status(403).json({ message: 'Billet expiré, téléchargement impossible' });
     }
 
     res.setHeader('Content-Type', 'application/pdf');

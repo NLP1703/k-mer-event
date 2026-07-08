@@ -234,11 +234,7 @@ function Bookings() {
                   </div>
                   <div className="space-y-2 text-right">
                     <p className="text-muted">Référence : {booking.booking_number}</p>
-                    {expired ? (
-                      <p className="text-xs text-danger">
-                        Téléchargement indisponible — événement passé.
-                      </p>
-                    ) : pending ? (
+                    {pending && !expired ? (
                       <p className="text-xs text-warm">
                         Validé après confirmation du paiement par l’organisateur.
                       </p>
