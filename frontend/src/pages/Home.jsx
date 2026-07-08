@@ -10,13 +10,17 @@ import {
   PartyPopper,
   Mic,
   Theater,
-  Drum,
   Trophy,
   Heart,
   ChevronDown,
   QrCode,
   Smartphone,
   TrendingUp,
+  Tag,
+  Shirt,
+  Cpu,
+  Moon,
+  Gamepad2,
 } from 'lucide-react';
 import { fetchEvents } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -26,14 +30,25 @@ import { Button, Input, Card, Select } from '../components/ui';
 import { useFavorites } from '../lib/favorites.js';
 import { cn } from '../lib/cn.js';
 
-const CATEGORIES = [
-  { label: 'Concert', icon: Music },
-  { label: 'Festival', icon: PartyPopper },
-  { label: 'Stand-up', icon: Mic },
-  { label: 'Théâtre', icon: Theater },
-  { label: 'Afrobeat', icon: Drum },
-  { label: 'Sport', icon: Trophy },
+// Map an arbitrary category name (whatever organizers typed) to a fitting icon
+// by keyword, with a neutral fallback. The carousel/chips are built from the
+// categories that actually exist in the events, so a click always yields
+// results — the previous hardcoded list (Stand-up, Théâtre, Afrobeat, Sport)
+// matched no events and showed an empty "Aucun événement trouvé".
+const CATEGORY_ICONS = [
+  { re: /concert|music|afro|rap|r&?b|rnb|jazz|gospel|slam/i, icon: Music },
+  { re: /festival|carnaval/i, icon: PartyPopper },
+  { re: /stand.?up|comed|humou?r|one.?man/i, icon: Mic },
+  { re: /th[eé][aâ]tre|spectacle|danse|art/i, icon: Theater },
+  { re: /sport|match|foot|basket|marathon|course/i, icon: Trophy },
+  { re: /night|bal|club|soir|party|dj/i, icon: Moon },
+  { re: /tech|digital|dev|data|ai|cloud|startup|innovat/i, icon: Cpu },
+  { re: /fashion|mode|d[eé]fil|beaut/i, icon: Shirt },
+  { re: /gaming|game|jeu|chill|fun|piscine|pool|detente|détente/i, icon: Gamepad2 },
 ];
+
+const iconForCategory = (label) =>
+  CATEGORY_ICONS.find(({ re }) => re.test(String(label || '')))?.icon || Tag;
 
 const VALUE_PROPS = [
   {
@@ -118,7 +133,7 @@ function SectionHead({ eyebrow, title, aside }) {
 }
 
 /* ============ Hero — moment électrique (bleu nuit sur les deux thèmes) ============ */
-function Hero({ search, setSearch, onPickCategory }) {
+function Hero({ search, setSearch, onPickCategory, categories }) {
   const submit = (e) => {
     e.preventDefault();
     scrollToEvents();
@@ -186,24 +201,26 @@ function Hero({ search, setSearch, onPickCategory }) {
           </button>
         </motion.form>
 
-        {/* Chips catégories */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.22 }}
-          className="flex flex-wrap items-center justify-center gap-2 mt-6"
-        >
-          {CATEGORIES.map(({ label }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onPickCategory(label)}
-              className="px-4 py-1.5 text-[13px] font-semibold rounded-full border border-white/15 text-[#C6CCEF] bg-white/[0.04] hover:border-primary hover:text-white hover:bg-primary/15 transition-colors"
-            >
-              {label}
-            </button>
-          ))}
-        </motion.div>
+        {/* Chips catégories — construites depuis les vraies catégories */}
+        {categories.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.22 }}
+            className="flex flex-wrap items-center justify-center gap-2 mt-6"
+          >
+            {categories.slice(0, 6).map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onPickCategory(label)}
+                className="px-4 py-1.5 text-[13px] font-semibold rounded-full border border-white/15 text-[#C6CCEF] bg-white/[0.04] hover:border-primary hover:text-white hover:bg-primary/15 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        ) : null}
 
         {/* Stats */}
         <motion.dl
@@ -227,12 +244,17 @@ function Hero({ search, setSearch, onPickCategory }) {
 }
 
 /* ============ Catégories — bandeau auto-défilant cliquable ============ */
-function Categories({ active, onPick }) {
+// `categories` are the real category strings present in the fetched events, so
+// every card is guaranteed to match at least one event.
+function Categories({ categories, active, onPick }) {
+  if (!categories.length) return null;
+
   // La liste est rendue deux fois : la piste `marquee-track` translate de -50%
   // (une copie exacte) en boucle, donc le défilement horizontal est continu et
   // sans couture. Survol / focus = pause pour cliquer confortablement; la copie
   // est masquée aux lecteurs d'écran et au clavier.
-  const renderCard = ({ label, icon: Icon }, clone) => {
+  const renderCard = (label, clone) => {
+    const Icon = iconForCategory(label);
     const isActive = active === label;
     return (
       <button
@@ -251,7 +273,7 @@ function Categories({ active, onPick }) {
         )}
       >
         <Icon className={cn('w-5 h-5 mx-auto', isActive ? 'text-primary' : 'text-muted')} />
-        <p className={cn('mt-2 text-sm font-semibold', isActive ? 'text-primary' : 'text-fg')}>
+        <p className={cn('mt-2 text-sm font-semibold truncate', isActive ? 'text-primary' : 'text-fg')}>
           {label}
         </p>
       </button>
@@ -270,8 +292,8 @@ function Categories({ active, onPick }) {
         }}
       >
         <div className="marquee-track flex w-max gap-3 pr-3" role="list">
-          {CATEGORIES.map((c) => renderCard(c, false))}
-          {CATEGORIES.map((c) => renderCard(c, true))}
+          {categories.map((c) => renderCard(c, false))}
+          {categories.map((c) => renderCard(c, true))}
         </div>
       </div>
     </section>
@@ -580,9 +602,9 @@ function Home() {
 
   return (
     <div className="space-y-16 md:space-y-24">
-      <Hero search={search} setSearch={setSearch} onPickCategory={pickCategory} />
+      <Hero search={search} setSearch={setSearch} onPickCategory={pickCategory} categories={categories} />
 
-      <Categories active={categoryFilter} onPick={(label) => setCategoryFilter(label)} />
+      <Categories categories={categories} active={categoryFilter} onPick={(label) => setCategoryFilter(label)} />
 
       {/* Events */}
       <section id="events" className="space-y-6 scroll-mt-24">

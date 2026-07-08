@@ -123,6 +123,9 @@ html.theme-ready * {
 }
 .marquee-track {
   animation: marquee-x 28s linear infinite;
+  /* Promote to its own GPU layer so the continuous animation composites off the
+     main thread and doesn't repaint siblings (keeps clicks/navigation snappy). */
+  will-change: transform;
 }
 .marquee-track:hover,
 .marquee-track:focus-within {

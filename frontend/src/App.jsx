@@ -1,7 +1,8 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import Layout from './components/Layout.jsx';
+import ChunkErrorBoundary from './components/ChunkErrorBoundary.jsx';
 import { Skeleton } from './components/ui';
 import { useAuth } from './context/AuthContext.jsx';
 
@@ -41,9 +42,26 @@ function PageFallback() {
 function App() {
   const { user } = useAuth();
 
+  // Warm the chunks a visitor is most likely to open next (event page, auth,
+  // cart) during idle time, so the first navigation feels instant instead of
+  // waiting on a fresh download after the click. Runs off the critical path.
+  useEffect(() => {
+    const prefetch = () => {
+      import('./pages/EventDetails.jsx');
+      import('./pages/Login.jsx');
+      import('./pages/Register.jsx');
+      import('./pages/Cart.jsx');
+    };
+    const ric = window.requestIdleCallback || ((cb) => window.setTimeout(cb, 1500));
+    const cancel = window.cancelIdleCallback || window.clearTimeout;
+    const id = ric(prefetch);
+    return () => cancel(id);
+  }, []);
+
   return (
-    <Suspense fallback={<PageFallback />}>
-      <Routes>
+    <ChunkErrorBoundary>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="event/:id" element={<EventDetails />} />
@@ -64,8 +82,9 @@ function App() {
             element={user?.role === 'admin' || user?.role === 'organizer' ? <CheckIn /> : <Navigate to="/login" />}
           />
         </Route>
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </ChunkErrorBoundary>
   );
 }
 
