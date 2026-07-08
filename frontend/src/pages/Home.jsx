@@ -226,40 +226,53 @@ function Hero({ search, setSearch, onPickCategory }) {
   );
 }
 
-/* ============ Catégories — carrousel horizontal cliquable ============ */
+/* ============ Catégories — bandeau auto-défilant cliquable ============ */
 function Categories({ active, onPick }) {
+  // La liste est rendue deux fois : la piste `marquee-track` translate de -50%
+  // (une copie exacte) en boucle, donc le défilement horizontal est continu et
+  // sans couture. Survol / focus = pause pour cliquer confortablement; la copie
+  // est masquée aux lecteurs d'écran et au clavier.
+  const renderCard = ({ label, icon: Icon }, clone) => {
+    const isActive = active === label;
+    return (
+      <button
+        key={clone ? `${label}-clone` : label}
+        type="button"
+        role={clone ? undefined : 'listitem'}
+        aria-hidden={clone || undefined}
+        tabIndex={clone ? -1 : undefined}
+        onClick={() => onPick(isActive ? '' : label)}
+        aria-pressed={clone ? undefined : isActive}
+        className={cn(
+          'shrink-0 w-32 sm:w-36 p-4 text-center transition rounded-2xl border shadow-card',
+          isActive
+            ? 'border-primary bg-primary/10 text-primary'
+            : 'border-border bg-surface hover:border-primary/50 hover:-translate-y-0.5',
+        )}
+      >
+        <Icon className={cn('w-5 h-5 mx-auto', isActive ? 'text-primary' : 'text-muted')} />
+        <p className={cn('mt-2 text-sm font-semibold', isActive ? 'text-primary' : 'text-fg')}>
+          {label}
+        </p>
+      </button>
+    );
+  };
+
   return (
     <section id="categories" className="space-y-5">
       <SectionHead eyebrow="Explorer" title="Catégories populaires" />
-      {/* Défilement horizontal : la liste glisse latéralement (swipe mobile,
-          molette/trackpad desktop). Scrollbar masquée, snap sur chaque carte. */}
       <div
-        className="flex gap-3 pb-2 -mx-1 px-1 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-        role="list"
+        className="overflow-hidden py-1 -my-1"
+        style={{
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+          maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+        }}
       >
-        {CATEGORIES.map(({ label, icon: Icon }) => {
-          const isActive = active === label;
-          return (
-            <button
-              key={label}
-              type="button"
-              role="listitem"
-              onClick={() => onPick(isActive ? '' : label)}
-              aria-pressed={isActive}
-              className={cn(
-                'snap-start shrink-0 w-32 sm:w-36 p-4 text-center transition rounded-2xl border shadow-card',
-                isActive
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-surface hover:border-primary/50 hover:-translate-y-0.5',
-              )}
-            >
-              <Icon className={cn('w-5 h-5 mx-auto', isActive ? 'text-primary' : 'text-muted')} />
-              <p className={cn('mt-2 text-sm font-semibold', isActive ? 'text-primary' : 'text-fg')}>
-                {label}
-              </p>
-            </button>
-          );
-        })}
+        <div className="marquee-track flex w-max gap-3 pr-3" role="list">
+          {CATEGORIES.map((c) => renderCard(c, false))}
+          {CATEGORIES.map((c) => renderCard(c, true))}
+        </div>
       </div>
     </section>
   );

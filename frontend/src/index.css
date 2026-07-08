@@ -114,6 +114,21 @@ html.theme-ready * {
   transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
 }
 
+/* Carrousel catégories : la piste (contenu dupliqué) glisse en continu vers la
+   gauche ; -50% = exactement une copie de la liste, donc la boucle est invisible.
+   Pause au survol / focus clavier pour laisser cliquer. */
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee-x 28s linear infinite;
+}
+.marquee-track:hover,
+.marquee-track:focus-within {
+  animation-play-state: paused;
+}
+
 /* Accessibilité : neutralise les animations CSS si l'utilisateur le demande */
 @media (prefers-reduced-motion: reduce) {
   *,
