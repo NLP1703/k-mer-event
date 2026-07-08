@@ -1,22 +1,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Ticket PDF renderer.
 // ─────────────────────────────────────────────────────────────────────────────
-// Draws a single premium ticket onto a pdfkit document: brand accent bar,
-// event logo + organizer badge, event title with date/time/location, a details
-// column (ticket code, attendee, type, booking reference) next to the QR code,
-// and an "important information" panel. The controller owns the HTTP response
-// and just pipes the document; this module only draws.
+// Draws a single premium ticket onto a pdfkit document, styled as a physical
+// ticket card: dark header (logo, event title, organizer) over a gradient
+// hairline, a date/time/venue strip, a perforated divider with edge notches,
+// then the stub (attendee details next to the QR code and ticket code), and
+// an "important information" panel. The controller owns the HTTP response and
+// just pipes the document; this module only draws.
 
 import fs from 'fs';
 import path from 'path';
 
 // Brand palette — mirrors the v2 tokens in frontend/src/index.css.
-const INK = '#12142E';        // indigo-black: primary text & dark badges
+const INK = '#12142E';        // indigo-black: primary text & dark header
 const PRIMARY = '#6355F5';    // violet-indigo brand accent
 const VIOLET = '#8B5CF6';
+const BLUE = '#2E7CF6';
 const LABEL = '#6B7399';      // muted uppercase labels
 const BODY = '#3A3D5C';       // body text
 const LINE = '#E6E7F0';       // hairline separators / borders
+const QR_LINE = '#DDD9FB';    // violet-tinted QR frame
+const HEADER_MUTED = '#A9A3EC'; // small caps on the dark header
+const HEADER_SOFT = '#C8C3F8';  // organizer line on the dark header
 const BOX_BG = '#F4F3FC';     // soft indigo info panel
 const WHITE = '#FFFFFF';
 
@@ -91,7 +96,8 @@ const loadEventImage = (event) => {
 };
 
 // Small rounded logo tile: the event image cover-cropped into a rounded square,
-// or a violet monogram tile when no local image is available.
+// or a violet monogram tile when no local image is available. `onDark` softens
+// the border so the tile sits well on the dark header.
 const drawLogo = (doc, x, y, size, imagePath, monogram) => {
   const r = 12;
   if (imagePath) {
@@ -100,13 +106,15 @@ const drawLogo = (doc, x, y, size, imagePath, monogram) => {
       doc.roundedRect(x, y, size, size, r).clip();
       doc.image(imagePath, x, y, { cover: [size, size], align: 'center', valign: 'center' });
       doc.restore();
-      doc.roundedRect(x, y, size, size, r).lineWidth(1).stroke(LINE);
+      doc.roundedRect(x, y, size, size, r).lineWidth(1).stroke('#2A2C4E');
       return;
     } catch {
       try { doc.restore(); } catch { /* no-op */ }
     }
   }
-  doc.roundedRect(x, y, size, size, r).fill(PRIMARY);
+  const grad = doc.linearGradient(x, y, x + size, y + size);
+  grad.stop(0, VIOLET).stop(1, PRIMARY);
+  doc.roundedRect(x, y, size, size, r).fill(grad);
   doc
     .fillColor(WHITE)
     .font('Helvetica-Bold')
@@ -122,25 +130,8 @@ const fitText = (doc, str, maxW) => {
   return `${s.trimEnd()}…`;
 };
 
-// Dark rounded pill, right-aligned and centered on `centerY`, holding the
-// organizer name in white caps on a single line.
-const drawOrganizerBadge = (doc, centerY, name) => {
-  const padX = 13;
-  const h = 24;
-  const maxAvail = 260 - padX * 2;
-  doc.font('Helvetica-Bold').fontSize(8.5);
-  const text = fitText(doc, String(name || 'Organisateur').toUpperCase(), maxAvail);
-  const w = Math.min(doc.widthOfString(text) + padX * 2 + 2, 260);
-  const x = RIGHT - w;
-  const y = centerY - h / 2;
-  doc.roundedRect(x, y, w, h, h / 2).fill(INK);
-  doc
-    .fillColor(WHITE)
-    .text(text, x + padX, y + h / 2 - 5, { width: w - padX * 2, align: 'center', lineBreak: false });
-};
-
-// A label + value block used in the details column.
-const drawField = (doc, x, y, w, label, value, { mono = false, valueSize = 11, gap = 14 } = {}) => {
+// A label + value block used in the stub details column.
+const drawField = (doc, x, y, w, label, value, { mono = false, valueSize = 11, gap = 13 } = {}) => {
   doc
     .font('Helvetica-Bold')
     .fontSize(7.5)
@@ -154,12 +145,23 @@ const drawField = (doc, x, y, w, label, value, { mono = false, valueSize = 11, g
   return vy + vh + gap;
 };
 
-// Bold "Label : " prefix followed by a regular value, on one line.
-const drawMeta = (doc, y, label, value) => {
-  doc.fontSize(11);
-  doc.font('Helvetica-Bold').fillColor(INK).text(`${label} : `, M, y, { continued: true });
-  doc.font('Helvetica').fillColor(BODY).text(value || '—');
-  return y + 18;
+// One column of the date/time/venue strip: violet small-caps label over a bold
+// single-line value (ellipsized to the column width).
+const drawMetaColumn = (doc, x, y, w, label, value) => {
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(7.5)
+    .fillColor(PRIMARY)
+    .text(String(label).toUpperCase(), x, y, { width: w, characterSpacing: 1 });
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(INK);
+  doc.text(fitText(doc, String(value || '—'), w), x, y + 13, { width: w, lineBreak: false });
+};
+
+// The three-stop brand gradient used for accent lines.
+const brandGradient = (doc, x1, x2, y) => {
+  const grad = doc.linearGradient(x1, y, x2, y);
+  grad.stop(0, VIOLET).stop(0.5, PRIMARY).stop(1, BLUE);
+  return grad;
 };
 
 // Draw one full ticket. `booking` is expected to carry `event` and (optionally)
@@ -174,80 +176,154 @@ export const drawTicket = (doc, { booking, user }) => {
   const validEnd = end && Number.isFinite(end.getTime());
 
   // ── Brand accent bar (full-bleed, top edge) ──────────────────────────────
-  const grad = doc.linearGradient(0, 0, PAGE_W, 0);
-  grad.stop(0, VIOLET).stop(0.5, PRIMARY).stop(1, '#2E7CF6');
-  doc.rect(0, 0, PAGE_W, 6).fill(grad);
+  doc.rect(0, 0, PAGE_W, 6).fill(brandGradient(doc, 0, PAGE_W, 0));
 
-  // ── Header: logo + organizer badge ───────────────────────────────────────
-  let y = 46;
-  const logoSize = 46;
-  drawLogo(doc, M, y, logoSize, loadEventImage(event), initials(event.organizer || event.title));
-  drawOrganizerBadge(doc, y + logoSize / 2, event.organizer);
-  y += logoSize + 22;
+  // ── Ticket card geometry ──────────────────────────────────────────────────
+  const cardX = M;
+  const cardW = CONTENT_W;
+  const cardTop = 44;
+  const cardR = 18;
+  const padX = 24;
 
-  // ── Event title ──────────────────────────────────────────────────────────
-  const title = event.title || 'Événement';
-  doc.font('Helvetica-Bold').fontSize(23).fillColor(INK);
-  doc.text(title, M, y, { width: CONTENT_W });
-  y += doc.heightOfString(title, { width: CONTENT_W }) + 12;
+  // Header content is measured first so the dark band hugs the title height.
+  const logoSize = 48;
+  const title = truncate(event.title || 'Événement', 60);
+  const titleX = cardX + padX + logoSize + 16;
+  const titleW = cardX + cardW - padX - titleX;
+  doc.font('Helvetica-Bold').fontSize(19);
+  const titleH = doc.heightOfString(title, { width: titleW });
+  const headerH = 20 + 11 + 16 + Math.max(logoSize, titleH + 7 + 12) + 20;
 
-  // ── Date / Heure / Lieu ───────────────────────────────────────────────────
-  y = drawMeta(doc, y, 'Date', validStart ? cap(frDate(start)) : 'À préciser');
-  y = drawMeta(
+  // ── Header band (dark, clipped to the card's rounded top) ────────────────
+  doc.save();
+  doc.roundedRect(cardX, cardTop, cardW, headerH + cardR, cardR).clip();
+  doc.rect(cardX, cardTop, cardW, headerH).fill(INK);
+  doc.restore();
+
+  // Row 1: "billet officiel" + wordmark.
+  let y = cardTop + 20;
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(7.5)
+    .fillColor(HEADER_MUTED)
+    .text('BILLET OFFICIEL', cardX + padX, y, { characterSpacing: 2, lineBreak: false });
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(9.5)
+    .fillColor(WHITE)
+    .text('K-MER EVENT', cardX + padX, y - 1.5, {
+      width: cardW - padX * 2,
+      align: 'right',
+      lineBreak: false,
+    });
+
+  // Row 2: logo + title + organizer.
+  y += 11 + 16;
+  drawLogo(doc, cardX + padX, y, logoSize, loadEventImage(event), initials(event.organizer || event.title));
+  doc.font('Helvetica-Bold').fontSize(19).fillColor(WHITE);
+  doc.text(title, titleX, y, { width: titleW });
+  doc
+    .font('Helvetica')
+    .fontSize(9.5)
+    .fillColor(HEADER_SOFT)
+    .text(
+      fitText(doc, `Organisé par ${event.organizer || 'K-MER Event'}`, titleW),
+      titleX,
+      y + titleH + 7,
+      { width: titleW, lineBreak: false },
+    );
+
+  // Gradient hairline sealing the header.
+  const headerBottom = cardTop + headerH;
+  doc.rect(cardX, headerBottom - 3, cardW, 3).fill(brandGradient(doc, cardX, cardX + cardW, headerBottom));
+
+  // ── Date / Heure / Lieu strip ─────────────────────────────────────────────
+  // Weighted columns: "Heure" is always short, so venue gets the spare width.
+  const metaTop = headerBottom + 18;
+  const metaW = cardW - padX * 2;
+  const colX = [0, 0.36, 0.58].map((f) => cardX + padX + metaW * f);
+  const colW = [metaW * 0.36 - 14, metaW * 0.22 - 14, metaW * 0.42];
+  const venue = [event.venue, event.city].filter(Boolean).join(', ') || 'À préciser';
+  drawMetaColumn(doc, colX[0], metaTop, colW[0], 'Date', validStart ? cap(frDate(start)) : 'À préciser');
+  drawMetaColumn(
     doc,
-    y,
+    colX[1],
+    metaTop,
+    colW[1],
     'Heure',
     validStart ? (validEnd ? `${hhmm(start)} – ${hhmm(end)}` : hhmm(start)) : 'À préciser',
   );
-  y = drawMeta(doc, y, 'Lieu', truncate([event.venue, event.city].filter(Boolean).join(', ') || 'À préciser', 52));
+  drawMetaColumn(doc, colX[2], metaTop, colW[2], 'Lieu', venue);
+  [colX[1], colX[2]].forEach((sx) => {
+    doc.moveTo(sx - 14, metaTop + 1).lineTo(sx - 14, metaTop + 25).lineWidth(1).stroke(LINE);
+  });
 
-  // ── Divider ───────────────────────────────────────────────────────────────
-  y += 8;
-  doc.moveTo(M, y).lineTo(RIGHT, y).lineWidth(1).stroke(LINE);
-  y += 22;
+  // ── Perforated divider with edge notches ─────────────────────────────────
+  const perfY = metaTop + 26 + 16;
+  doc
+    .save()
+    .dash(4, { space: 5 })
+    .moveTo(cardX + 14, perfY)
+    .lineTo(cardX + cardW - 14, perfY)
+    .lineWidth(1.2)
+    .stroke('#CFD1E3')
+    .undash()
+    .restore();
 
-  // ── Details column + QR ───────────────────────────────────────────────────
-  const colsTop = y;
-  const qrSize = 150;
-  const qrX = RIGHT - qrSize;
-  const leftW = qrX - M - 28;
+  // ── Stub: attendee details (left) + QR (right) ───────────────────────────
+  const stubTop = perfY + 22;
+  const qrSize = 142;
+  const qrX = cardX + cardW - padX - qrSize;
+  const leftX = cardX + padX;
+  const leftW = qrX - leftX - 26;
 
-  // QR box (right).
-  doc.roundedRect(qrX, colsTop, qrSize, qrSize, 14).fillAndStroke(WHITE, LINE);
+  doc.roundedRect(qrX, stubTop, qrSize, qrSize, 14).lineWidth(1.4).fillAndStroke(WHITE, QR_LINE);
   const qrBuffer = dataUrlToBuffer(booking.qr_code_url);
   if (qrBuffer) {
-    const inset = 14;
+    const inset = 12;
     try {
-      doc.image(qrBuffer, qrX + inset, colsTop + inset, {
+      doc.image(qrBuffer, qrX + inset, stubTop + inset, {
         fit: [qrSize - inset * 2, qrSize - inset * 2],
         align: 'center',
         valign: 'center',
       });
     } catch { /* skip a corrupt QR rather than fail the whole ticket */ }
   }
+  doc.font('Courier-Bold').fontSize(12.5).fillColor(INK);
+  doc.text(fitText(doc, String(booking.booking_number || '—'), qrSize + 24), qrX - 12, stubTop + qrSize + 10, {
+    width: qrSize + 24,
+    align: 'center',
+    lineBreak: false,
+  });
   doc
     .font('Helvetica')
-    .fontSize(8)
+    .fontSize(7.5)
     .fillColor(LABEL)
-    .text('Scanner à l’entrée', qrX, colsTop + qrSize + 9, {
+    .text('SCANNER À L’ENTRÉE', qrX, stubTop + qrSize + 27, {
       width: qrSize,
       align: 'center',
-      characterSpacing: 0.5,
+      characterSpacing: 1,
     });
-  const qrBottom = colsTop + qrSize + 9 + 12;
+  const qrBottom = stubTop + qrSize + 27 + 10;
 
-  // Detail fields (left).
-  let ly = colsTop;
-  ly = drawField(doc, M, ly, leftW, 'Code du billet', booking.booking_number, { mono: true, valueSize: 15, gap: 16 });
-  ly = drawField(doc, M, ly, leftW, 'Nom du participant', booking.customer_name || buyer.name);
-  ly = drawField(doc, M, ly, leftW, 'E-mail', booking.customer_email || buyer.email);
-  ly = drawField(doc, M, ly, leftW, 'Type de billet', cap(event.category) || 'Standard');
+  let ly = stubTop;
+  ly = drawField(doc, leftX, ly, leftW, 'Nom du participant', booking.customer_name || buyer.name, { valueSize: 12 });
+  ly = drawField(doc, leftX, ly, leftW, 'E-mail', booking.customer_email || buyer.email);
+  ly = drawField(doc, leftX, ly, leftW, 'Type de billet', cap(event.category) || 'Standard');
   if (Number(booking.quantity) > 1) {
-    ly = drawField(doc, M, ly, leftW, 'Places', String(booking.quantity));
+    ly = drawField(doc, leftX, ly, leftW, 'Places', String(booking.quantity));
   }
-  ly = drawField(doc, M, ly, leftW, 'Référence de réservation', booking.id, { mono: true, valueSize: 9, gap: 0 });
+  ly = drawField(doc, leftX, ly, leftW, 'Référence de réservation', booking.id, { mono: true, valueSize: 8.5, gap: 0 });
 
-  y = Math.max(ly, qrBottom) + 24;
+  const cardBottom = Math.max(ly, qrBottom) + 22;
+
+  // ── Card outline + perforation notches ───────────────────────────────────
+  doc.roundedRect(cardX, cardTop, cardW, cardBottom - cardTop, cardR).lineWidth(1.2).stroke(LINE);
+  [cardX, cardX + cardW].forEach((nx) => {
+    doc.circle(nx, perfY, 7).lineWidth(1.2).fillAndStroke(WHITE, LINE);
+  });
+
+  y = cardBottom + 20;
 
   // ── Important information panel ───────────────────────────────────────────
   const bullets = [
@@ -256,28 +332,27 @@ export const drawTicket = (doc, { booking, user }) => {
     'Gardez votre code de billet confidentiel et ne le partagez pas.',
     'Contactez l’organisateur pour toute question.',
   ];
-  const padX = 18;
-  const padY = 16;
-  const bulletX = M + padX + 12;
-  const bulletW = CONTENT_W - padX * 2 - 12;
+  const boxPadX = 18;
+  const boxPadY = 16;
+  const bulletX = M + boxPadX + 12;
+  const bulletW = CONTENT_W - boxPadX * 2 - 12;
   doc.font('Helvetica').fontSize(9);
   const bulletHeights = bullets.map((b) => doc.heightOfString(b, { width: bulletW }));
-  const titleH = 14;
-  const boxH = padY + titleH + 6 + bulletHeights.reduce((a, h) => a + h + 7, 0) - 7 + padY;
+  const titleLineH = 14;
+  const boxH = boxPadY + titleLineH + 6 + bulletHeights.reduce((a, h) => a + h + 7, 0) - 7 + boxPadY;
 
   doc.roundedRect(M, y, CONTENT_W, boxH, 12).fillAndStroke(BOX_BG, LINE);
   doc
     .font('Helvetica-Bold')
     .fontSize(10)
     .fillColor(INK)
-    .text('Informations importantes', M + padX, y + padY, { width: CONTENT_W - padX * 2 });
-  let by = y + padY + titleH + 6;
+    .text('Informations importantes', M + boxPadX, y + boxPadY, { width: CONTENT_W - boxPadX * 2 });
+  let by = y + boxPadY + titleLineH + 6;
   bullets.forEach((b, i) => {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(VIOLET).text('•', M + padX, by, { width: 10 });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(VIOLET).text('•', M + boxPadX, by, { width: 10 });
     doc.font('Helvetica').fontSize(9).fillColor(BODY).text(b, bulletX, by, { width: bulletW });
     by += bulletHeights[i] + 7;
   });
-  y += boxH;
 
   // ── Footer ────────────────────────────────────────────────────────────────
   doc

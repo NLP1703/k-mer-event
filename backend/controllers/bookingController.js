@@ -260,6 +260,23 @@ export const downloadTicketPdf = async (req, res, next) => {
       return res.status(403).json({ message: 'Ticket annulé, téléchargement impossible' });
     }
 
+    // Bookings created before QR codes were stored (or with a non-embeddable
+    // value) would otherwise render with an empty QR box. Regenerate the code
+    // here so every ticket — old or new — is scannable at check-in, and
+    // persist it so future downloads and the check-in flow stay consistent.
+    const hasUsableQr = /^data:image\/[a-z0-9.+-]+;base64,/i.test(String(booking.qr_code_url || ''));
+    if (!hasUsableQr) {
+      try {
+        const qr = await createQrCodeForBooking(
+          booking.booking_number,
+          booking.event?.title,
+          booking.user_id,
+        );
+        booking.qr_code_url = qr;
+        await booking.update({ qr_code_url: qr });
+      } catch { /* render the ticket without a QR rather than fail the download */ }
+    }
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="ticket-${booking.booking_number}.pdf"`);
 
